@@ -1,0 +1,54 @@
+####################################
+##  MediaWiki Sync Configuration  ##
+##  version 0.2                   ##
+####################################
+
+# Frequency of synchronization (in minutes; must be an integer amount)
+sync.period = 1
+
+
+########
+## Source Configuration
+########
+
+# Base URL of source mediawiki (without http://; i.e. en.wikipedia.org)
+source.location	= en.wikipedia.org
+
+# Script path (uncomment if different than standard /w)
+#source.scripts =  
+
+# Username that owns the target watchlist on the source MediaWiki
+source.username = 
+
+
+########
+## Target Configuration
+########
+
+# Base URL of target MediaWiki (without http://; i.e. genewikiplus.org)
+target.location = 
+
+# Script path (uncomment if different than the standard /w)
+#target.scripts =
+
+# Username of account on target that will be writing the changes
+target.username = 
+
+
+########
+## Alert Email Configuration
+# To have the SyncService send an alert email before it quits
+# from any unforeseen problems, uncomment "send.alert.email = true"
+# and fill in the target user (must exist on source MW), the subject,
+# and the body of the desired email. The email will be sent from the 
+# watchlist user's registered email address, and the target user must
+# be able to receive emails from the source Mediawiki. 
+########
+
+send.alert.email 	= true;
+
+alert.email.subject = Synchronization failed
+
+alert.email.body	= This is an alert that your MediaWiki Sync service has failed. Please restart the service to prevent synchronization gaps.
+
+alert.email.target	= Pleiotrope
