@@ -200,7 +200,7 @@ public class SyncScheduler {
 		boolean rewrite = Boolean.parseBoolean(properties.getProperty("rewrite.article.content", "false"));
 
 		// FIXME replace DefaultSync with your custom Sync implementation!
-		Sync sync = new DefaultSync(source, target, period, rewrite);
+		Sync sync = new GeneWikiSync(source, target, period, rewrite);
 
 		ScheduledExecutorService executor = Executors.newScheduledThreadPool(2);
 		ScheduledFuture<?> future = executor.scheduleAtFixedRate(sync, 0, period, TimeUnit.MINUTES);
