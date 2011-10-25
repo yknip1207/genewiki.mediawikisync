@@ -197,9 +197,9 @@ public class SyncScheduler {
 	 */
 	public void start() {
 		Integer period = Integer.parseInt(properties.getProperty("sync.period", "5"));
-		boolean rewrite = Boolean.parseBoolean(properties.getProperty("rewrite.article.content", "false"));
+		boolean rewrite = Boolean.parseBoolean(properties.getProperty("rewrite.article.content", "true"));
 
-		// FIXME replace DefaultSync with your custom Sync implementation!
+		// Custom to GeneWiki branch
 		Sync sync = new GeneWikiSync(source, target, period, rewrite);
 
 		ScheduledExecutorService executor = Executors.newScheduledThreadPool(2);

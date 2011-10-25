@@ -1,5 +1,6 @@
 package edu.scripps.sync;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -10,6 +11,7 @@ import javax.security.auth.login.LoginException;
 
 import org.genewiki.api.Wiki;
 import org.genewiki.api.Wiki.Revision;
+import org.genewiki.util.Serialize;
 
 /**
  * Sync updates GeneWiki+ with the edits made to Wikipedia on specified pages in the specified
@@ -54,7 +56,14 @@ public abstract class Sync implements Runnable {
 	public void run() {
 		log("Syncing...");
 		try {
-			List<String> changed = getRecentChanges(period);
+			Calendar lastChecked;
+			try { lastChecked = (Calendar) Serialize.in("lastChecked.cal.ser"); }
+			catch (FileNotFoundException e) { 
+				lastChecked = Calendar.getInstance();
+				lastChecked.add(Calendar.MINUTE, -2*period);
+			}
+			List<String> changed = getRecentChanges(lastChecked);
+			Serialize.out("lastChecked.cal.ser", Calendar.getInstance());
 			log(String.format("Found %d new changes...", changed.size()));
 			writeChangedArticles(changed);
 		} catch (IOException e) {
@@ -66,15 +75,13 @@ public abstract class Sync implements Runnable {
 	/**
 	 * Returns a list of titles corresponding to pages changed in the 
 	 * time between the moment the method is called and the specified
-	 * number of minutes in the past.
-	 * @param minutesAgo number of minutes ago to form the lower bound of changes
+	 * time in the past
+	 * @param since time in the past
 	 * @return list of page titles
 	 * @throws IOException if network error occurs
 	 */
-	private List<String> getRecentChanges(int minutesAgo) throws IOException {
-		Calendar past = Calendar.getInstance();
-		past.add(Calendar.MINUTE, -minutesAgo);
-		List<Revision> live = source.getChangesFromWatchlist(past, true);
+	private List<String> getRecentChanges(Calendar since) throws IOException {
+		List<Revision> live = source.getChangesFromWatchlist(since, true);
 		Set<String> changed = new HashSet<String>(live.size());
 		for (Revision rev : live) {
 			changed.add(rev.getTitle());
