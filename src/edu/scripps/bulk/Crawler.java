@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -14,9 +15,9 @@ import javax.security.auth.login.FailedLoginException;
 import javax.security.auth.login.LoginException;
 
 import org.genewiki.api.Wiki;
-import org.genewiki.util.FileHandler;
 import org.genewiki.util.Serialize;
 
+import edu.scripps.sync.RDFCategory;
 import edu.scripps.sync.Rewrite;
 
 public class Crawler {
@@ -33,6 +34,7 @@ public class Crawler {
 		this.failed = failed;
 	}
 	
+	
 	@SuppressWarnings("unchecked")
 	public static void main(String[] args) throws FailedLoginException, IOException, CredentialNotFoundException {
 		Wiki target = new Wiki("genewikiplus.org", "");
@@ -46,16 +48,16 @@ public class Crawler {
 		target.setThrottle(0);
 		edited.login("genewikiplus_extended", args[2].toCharArray());
 		List<String> previouslyEdited = new ArrayList<String>();
-//		try {previouslyEdited = (ArrayList<String>) Serialize.in("completed.list.string.ser"); }
-//		catch (Exception e) { previouslyEdited = new ArrayList<String>(); }
+		try {previouslyEdited = (ArrayList<String>) Serialize.in("completed.list.str.ser"); }
+		catch (Exception e) { previouslyEdited = new ArrayList<String>(); }
 		List<String> failed = new ArrayList<String>();
-//		try {failed = (ArrayList<String>) Serialize.in("failed.list.string.ser"); }
-//		catch (Exception e) { failed = new ArrayList<String>(); }
+		try {failed = (ArrayList<String>) Serialize.in("failed.list.str.ser"); }
+		catch (Exception e) { failed = new ArrayList<String>(); }
 		Crawler crawler = new Crawler(source, target, previouslyEdited, failed);
-		ArrayList<String> all = new ArrayList<String>(crawler.findAllArticles(target));
-		List<String> watchlist = Arrays.asList(source.getRawWatchlist());
-		all.removeAll(watchlist);
-		all.removeAll(Arrays.asList(target.whatTranscludesHere("Template:GW+")));
+//		ArrayList<String> all = new ArrayList<String>(crawler.findAllArticles(target));
+//		List<String> watchlist = Arrays.asList(source.getRawWatchlist());
+//		all.removeAll(watchlist);
+//		all.removeAll(Arrays.asList(target.whatTranscludesHere("Template:GW+")));
 //		StringBuilder sb = new StringBuilder();
 //		for (String title : all) {
 //			sb.append(title+"\n");
@@ -67,8 +69,8 @@ public class Crawler {
 //		Collections.reverse(watchlist);
 //		int start = watchlist.indexOf("PTPN1");
 //		watchlist = watchlist.subList(start, watchlist.size());
-		
-		crawler.execute(all);
+		Set<RDFCategory> imports = RDFCategory.getCategories("file:/Users/eclarke/Downloads/doid.owl");
+		crawler.createCategories(imports, -1);
 
 		
 	}
@@ -103,8 +105,48 @@ public class Crawler {
 		}
 	}
 	
-	@SuppressWarnings("unchecked")
-	public List<String> execute(List<String> titles) {
+	/**
+	 * Create categories en masse from an imported ontology or other source. For testing,
+	 * the user can specify an optional limit, which, once hit, will end the category creation.
+	 * To disable the limit, set optionalLimit to -1.
+	 * @param cats a set of categories to create
+	 * @param optionalLimit number of categories to create this round. disabled if set to -1. 
+	 * @return
+	 */
+	public List<String> createCategories(Set<RDFCategory> cats, int optionalLimit) {
+		int completedThisRound = 0;
+		for (RDFCategory cat : cats) {
+			// If we've attempted this before, successfully or not, skip it
+			if (completed.contains(cat.Name())) {
+				continue;
+			} else if (failed.contains(cat.Name())) {
+				continue;
+			}
+			
+			// Otherwise, proceed with category creation
+			try {
+				RDFCategory.createCategoryOnWiki(cat, target);
+				completed.add(cat.Name());
+				Serialize.out("completed.list.str.ser", new ArrayList<String>(completed));
+				completedThisRound++;
+				System.out.printf("Completed %d (%d this round) of %d edits.\n", completed.size(), completedThisRound, cats.size());
+			} catch (IOException e) {
+				e.printStackTrace();
+				failed.add(cat.Name());
+				Serialize.out("failed.list.str.ser", new ArrayList<String>(failed));
+				System.out.printf("Failed to update category %s.", cat.Name());
+			}
+			
+			// If the optional limit is set and we've hit it, break out of the for loop
+			if (optionalLimit != -1 && completedThisRound >= optionalLimit) {
+				System.out.println("Optional limit reached, exiting.");
+				break;
+			}
+		}
+		return completed;
+	}
+	
+	public List<String> edit(List<String> titles) {
 		for (String title : titles) {
 			try {
 				if (completed.contains(title))
