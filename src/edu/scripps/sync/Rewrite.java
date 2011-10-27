@@ -1,10 +1,15 @@
 package edu.scripps.sync;
 
 import java.io.IOException;
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.genewiki.api.Wiki;
+
+import edu.scripps.resources.AnnotationDatabase;
 
 /**
  * Static methods for re-writing content en route to GeneWiki+.
@@ -38,14 +43,54 @@ public class Rewrite {
 	 * @param src
 	 * @return
 	 */
-	public static String prependGWPTemplate(String src) {
+	public static String prependGWPTemplate(String src, String title, Wiki wiki) {
+		// First, remove any {{GW+}} template that may already be on the page
 		if (src.contains("{{GW+")) {
-			return src;
+			int a = src.indexOf("{{GW+") + 5;
+			int b = src.indexOf("}}", a) + 2;
+			src = src.substring(0, a) + src.substring(b, src.length());
+		}
+		// Second, identify the page as a gene page, a disease page,
+		// or neither
+		if (src.contains("{{PBB|gene")){
+			// If it's a gene page, find the SNPs associated with it
+			Set<String> snps = null;
+			try {
+				snps = wiki.askQuery("in_gene", title).keySet();
+			} catch (IOException e) {
+				e.printStackTrace();
+				return src;
+			}
+			StringBuilder gw = new StringBuilder("\n{{GW+|gene|");
+			for (String snp : snps) {
+				gw.append(snp).append("|");
+			}
+			gw.append("}}\n");
+			return src + gw.toString();
 		} else {
-			return src.concat("{{GW+}}");
+			// Test to see if it's a recognized disease term
+			AnnotationDatabase anno = new AnnotationDatabase("annotations.db");
+			String disease = null;
+			try {
+				disease = anno.getAssociatedDisease(title);
+			} catch (SQLException e) {
+				// TODO do something useful with this
+			}
+			// If it is a disease, write the GW+ template accordingly; if not,
+			// write a generic (no-parameter) GW+ template
+			if (disease != null) {
+				return src + "\n{{GW+|disease}}\n";
+			} else {
+				return src + "\n{{GW+}}\n";
+			}
 		}
 	}
 	
+	/**
+	 * Modifies {{SWL}} templates to be semantic wikilinks.
+	 * @param src
+	 * @return
+	 */
 	public static String convertSWLTemplates(String src) {
 		while (src.contains("{{SWL")) {
 			try {

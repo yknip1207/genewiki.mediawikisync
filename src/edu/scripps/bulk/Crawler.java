@@ -159,7 +159,7 @@ public class Crawler {
 				catch (FileNotFoundException e) { e.printStackTrace(); continue; }
 				
 				//---- actual rewrite logic goes here ----
-				src = Rewrite.prependGWPTemplate(src);
+//				src = Rewrite.prependGWPTemplate(src);
 				//----
 				
 				try { target.edit(title, src, "Adding {{GW+}} template", true); }
