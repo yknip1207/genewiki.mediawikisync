@@ -5,8 +5,13 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+
+import com.google.common.collect.Sets;
 
 public class AnnotationDatabase {
 	
@@ -32,12 +37,17 @@ public class AnnotationDatabase {
 		// Connect to the database
 		Connection 			c = this.connect();
 		// Retrieve the DO title associated with the title
-		PreparedStatement 	ps = c.prepareStatement("select distinct(do_title) from title_do where title like ?;");
+		PreparedStatement 	ps = c.prepareStatement("select distinct(do_title) from title_do where title = ?");
+
 		ps.setString(1, pageTitle);
-		ps.addBatch();
+//		ps.addBatch();
+		c.setAutoCommit(false);
 		ResultSet rs = ps.executeQuery();
 		// This will be null if nothing was found
-		String result = rs.getString("do_title");
+		String result = null;
+		while (rs.next()) {
+			result = rs.getString("do_title");
+		}
 		// Close resources
 		rs.close();
 		ps.close();
@@ -46,7 +56,7 @@ public class AnnotationDatabase {
 		return result;
 	}
 	
-	public List<String> getDiseaseAssociatedWithGene(String geneId, String pageTitle) throws SQLException {
+	public Set<String> getDiseaseAssociatedWithGene(String geneId, String pageTitle) throws SQLException {
 		// Connect to the database
 		Connection 			c 	= this.connect();
 		
@@ -61,11 +71,10 @@ public class AnnotationDatabase {
 		} else {
 			throw new IllegalArgumentException("Either gene id or page title must not be null.");
 		}
-		ps.addBatch();
 		ResultSet rs = ps.executeQuery();
 
 		// Iterate over the results and add each result to the list
-		List<String> results = new ArrayList<String>();
+		Set<String> results = new HashSet<String>();
 		while (rs.next()) {
 			results.add(rs.getString("target_preferred_term"));
 		}
@@ -77,7 +86,7 @@ public class AnnotationDatabase {
 		return results;
 	}
 	
-	public List<String> getDiseaseAssociatedWithSNP(String snpAcc) throws SQLException {
+	public Set<String> getDiseaseAssociatedWithSNP(String snpAcc) throws SQLException {
 		// Connect to the database
 		Connection 			c 	= this.connect();
 		// Create and execute query
@@ -86,7 +95,7 @@ public class AnnotationDatabase {
 		ResultSet rs = ps.executeQuery();
 		
 		// Iterate over results and add each to the list
-		List<String> results = new ArrayList<String>();
+		Set<String> results = new HashSet<String>();
 		while (rs.next()) {
 			results.add(rs.getString("target_preferred_term"));
 		}
@@ -99,8 +108,42 @@ public class AnnotationDatabase {
 		return results;
 	}
 	
-	public List<String> getAllLinkedDiseaseTerms() {
-		throw new RuntimeException("Not yet implemented.");
+	public Set<String> getLinkedDiseaseTerms(String geneOrSnp) throws SQLException {
+		// Detect option
+		Boolean gene = null; 
+		if (geneOrSnp == "gene") {
+			gene = true;
+		} else if (geneOrSnp == "snp") {
+			gene = false;
+		} else {
+			throw new IllegalArgumentException("Illegal option: must be 'gene' or 'snp'.");
+		}
+		// Connect to the database
+		Connection 		c 		= this.connect();
+		// Create and execute query, choosing table based on option specified
+		String 			query 	= "select distinct(target_preferred_term) from "+((gene) ? "cannos" : "snp_cannos");
+		Statement		s		= c.createStatement();
+		ResultSet 		rs		= s.executeQuery(query);
+		
+		// Iteratively parse results
+		Set<String> 	results	= new HashSet<String>();
+		while (rs.next()) {
+			results.add(rs.getString("target_preferred_term"));
+		}
+		rs.close();
+		s.close();
+		c.close();
+		
+		return results;
+	}
+	
+	public Set<String> getAllLinkedDiseaseTerms() throws SQLException {
+		// Convert all results to sets so we can perform a union on them
+		Set<String> genDiseases	= getLinkedDiseaseTerms("gene");
+		Set<String> snpDiseases	= getLinkedDiseaseTerms("snp");
+		Set<String> union		= Sets.union(genDiseases, snpDiseases);
+
+		return union;
 	}
 	
 	/**

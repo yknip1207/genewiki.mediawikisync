@@ -3,6 +3,7 @@ package tests;
 import static org.junit.Assert.*;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 import org.genewiki.api.Wiki;
@@ -24,7 +25,7 @@ public class askQueryTest {
 	public void test() throws IOException {
 		Wiki gwp = new Wiki("genewikiplus.org", "");
 		gwp.setUsingCompressedRequests(false);
-		Map results = gwp.askQuery("in_gene", "GSK3B");
+		Map<String, List<String>> results = gwp.askQuery("in_gene", "GSK3B");
 		System.out.println(results.toString());
 		assertTrue(true); // Not a real test.
 	}
