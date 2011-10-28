@@ -113,7 +113,7 @@ public class Rewrite {
 				// find the target field's value
 				if (mTarget.find()) {
 					// target start index
-					int tgt = mTarget.start() + mTarget.group().length();	
+					int tgt = mTarget.end();
 					// find the end, if it's bordered by another field (the '|' char) or is at the end of the template
 					int end = (swl.indexOf('|', tgt) != -1) ? swl.indexOf('|', tgt) : swl.length();
 					// extract the text after the '=' (the value of the field)
@@ -123,7 +123,7 @@ public class Rewrite {
 				// find the type field's value
 				if (mType.find()) {
 					// same procedure as above
-					int typ = mType.start() + mType.group().length();
+					int typ = mType.end();
 					int end = (swl.indexOf('|', typ) != -1) ? swl.indexOf('|', typ) : swl.length();
 					type = swl.substring(typ, end);	
 				} else { continue; }
@@ -131,7 +131,7 @@ public class Rewrite {
 				// find the label field's value
 				if (mLabel.find()) {
 					// same procedure as above
-					int lbl = mLabel.start() + mLabel.group().length();
+					int lbl = mLabel.end();
 					int end = (swl.indexOf('|', lbl) != -1) ? swl.indexOf('|', lbl) : swl.length();
 					label = swl.substring(lbl, end);
 				}

@@ -43,7 +43,7 @@ public abstract class Sync implements Runnable {
 		
 		this.source = source;
 		this.target = target;
-		this.period = period;
+		this.period	= period;
 		this.rewrite = rewrite;
 	
 	}

@@ -152,7 +152,8 @@ public class SyncScheduler {
 		this.properties = new Properties();
 		properties.load(new FileReader(configLocation));
 		
-		this.source = new Wiki();
+		this.source = new Wiki(properties.getProperty("source.location"), properties.getProperty("source.scripts", "/"));
+		this.source.setUsingCompressedRequests(false);
 		source.setMaxLag(0);
 		source.login(
 				checkNotNull(properties.getProperty("source.username")), 
@@ -199,8 +200,10 @@ public class SyncScheduler {
 		Integer period = Integer.parseInt(properties.getProperty("sync.period", "5"));
 		boolean rewrite = Boolean.parseBoolean(properties.getProperty("rewrite.article.content", "true"));
 
-		// Custom to GeneWiki branch
-		Sync sync = new GeneWikiSync(source, target, period, rewrite);
+		/*
+		 * Sync can be subclassed to provide custom behavior (rewrite rules, etc) 
+		 */
+		Sync sync = new SNPediaSync(source, target, period, rewrite);
 
 		ScheduledExecutorService executor = Executors.newScheduledThreadPool(2);
 		ScheduledFuture<?> future = executor.scheduleAtFixedRate(sync, 0, period, TimeUnit.MINUTES);
@@ -223,7 +226,7 @@ public class SyncScheduler {
 					
 					/* If the failure time is within 1.1s of the launchtime, it is likely that something is wrong
 					   in the outside environment (network error, etc). We put a throttle on this fail-fast
-					   behavior to prevent it from going crazy and overwhelming the JVM
+					   behavior to prevent it from going crazy
 					 */ 
 					if (failTime - launchTime < 1100) {
 						quickfail++;
