@@ -25,29 +25,39 @@ import com.hp.hpl.jena.vocabulary.OWL;
 
 public class RDFCategory {
 	
-	final String 			name;
-	final String 			uri;
-	final String			description;
-	final Set<String> parents;
+	final String 		name;
+	final String 		uri;
+	final String		doid;
+	final String		description;
+	final Set<String> 	parents;
+	final Set<String>	synonyms;
 	
 	/**
 	 * Create a new category with the specified name, equivalent URI, and parent categories.
 	 * If the category has no parents (is top-level), let parents == null.
 	 * @param name
 	 * @param uri
-	 * @param parents parent categories. leave null if no parents
+	 * @param parents parent categories. leave null if no parents (though should have at least one specifying DO term)
+	 * @param synonyms synonyms for the current category. May be null or empty.
+	 * @throws NullPointerException if doid, uri, or title is null
 	 */
-	public RDFCategory(String uri, String title, Set<String> parents, String description, Set<String> synonyms) {
-		this.uri  		= Preconditions.checkNotNull(uri);
-		this.name 		= Preconditions.checkNotNull(title);
-		this.description= description;
-		this.parents 	= parents;
+	public RDFCategory(String doid, String uri, String title, Set<String> parents, String description, Set<String> synonyms) {
+		this.doid			= Preconditions.checkNotNull(doid);
+		this.uri  			= Preconditions.checkNotNull(uri);
+		this.name 			= Preconditions.checkNotNull(title);
+		this.description	= description;
+		this.parents 		= parents;
+		this.synonyms		= synonyms;
 	}
 	
 	/* ---- Getters ---- */
 	public String Name() { return name; }
 	public String fullName() { return "Category:"+name; }
 	public String Uri()  { return uri;  }
+	public String Doid() { return doid; }
+	public String formattedDOID() {
+		return "[[hasDOID::"+doid+"]]";
+	}
 	public String formattedUri() { 
 		return "[[equivalent URI:="+uri+"]]";
 	}
@@ -68,6 +78,14 @@ public class RDFCategory {
 			return Collections.emptySet();
 		} else {
 			return parents; 
+		}
+	}
+	
+	public Set<String> Synonyms() {
+		if (synonyms == null) {
+			return Collections.emptySet();
+		} else {
+			return synonyms;
 		}
 	}
 
@@ -174,7 +192,8 @@ public class RDFCategory {
 						synonyms.add(syn);
 					}
 				}
-				RDFCategory cat = new RDFCategory(uri, title, directParents, description, synonyms);
+				//FIXME no passing null as DOID!
+				RDFCategory cat = new RDFCategory(null, uri, title, directParents, description, synonyms);
 				categories.add(cat);
 				System.out.println(c+"\t"+title+"\n"+cat);
 			}else{
@@ -183,6 +202,96 @@ public class RDFCategory {
 		}
 
 		return categories;
+	}
+	
+	/**
+	 * Read an OWL ontology and produce a simple list of category/class objects.  If OBO, it uses their properties.
+	 * Ignores deprecated classes.
+	 * @param input_ont_file
+	 * @param fromobo
+	 * @return
+	 */
+	public Set<RDFCategory> getCategories(String input_ont_file, boolean fromobo){
+		Set<RDFCategory> cat_map = new HashSet<RDFCategory>();
+		OntModel ont = ModelFactory.createOntologyModel(OntModelSpec.OWL_DL_MEM); 
+		ont.read(input_ont_file);
+		System.out.println("read OWL file into Jena Model with no reasoning");
+		ExtendedIterator<OntClass> classes = ont.listClasses();
+		int c = 0;
+		OntProperty dep = ont.getOntProperty(OWL.getURI()+"deprecated");
+		OntProperty obo_def = null;
+		OntProperty obo_syns = null;
+		OntProperty obo_id = null;
+		if(fromobo){
+			obo_def = ont.getOntProperty("http://purl.obolibrary.org/obo/IAO_0000115");
+			obo_syns = ont.getOntProperty("http://www.geneontology.org/formats/oboInOwl#hasExactSynonym");
+			obo_id = ont.getOntProperty("http://www.geneontology.org/formats/oboInOwl#id");
+		}
+		while(classes.hasNext()){
+			c++;
+			OntClass oclass = classes.next();
+			String title = oclass.getLabel(null);
+			RDFNode d = oclass.getPropertyValue(dep);
+			boolean isdep = false;
+			if(d!=null){
+				Literal l = d.as(Literal.class);
+				isdep = l.getBoolean();
+			}
+			if(!isdep){
+
+				String uri = oclass.getURI();
+				String definition = ""; String accession = "";
+				Set<String> synonyms = new HashSet<String>();
+				if(fromobo){
+					//accession
+					RDFNode o_id = oclass.getPropertyValue(obo_id);
+					Literal l = o_id.as(Literal.class);
+					accession = l.getString().replace(":", "_");
+					//definition
+					RDFNode o_def = oclass.getPropertyValue(obo_def);
+					if(o_def!=null){
+						l = o_def.as(Literal.class);
+						definition = l.getString();
+					}
+					//synonyms
+					ExtendedIterator<RDFNode> syns = oclass.listPropertyValues(obo_syns); //only 'exact'
+					while(syns.hasNext()){
+						Literal t = syns.next().as(Literal.class);
+						String syn = t.getString();
+						if(!syn.equals(title)){
+							synonyms.add(syn);
+						}
+					}
+				}else{//not obo 
+					definition = oclass.getComment(null);
+					accession = oclass.getLocalName();
+					ExtendedIterator<RDFNode> syns = oclass.listLabels(null);
+					while(syns.hasNext()){
+						Literal t = syns.next().as(Literal.class);
+						String syn = t.getString();
+						if(!syn.equals(title)){
+							synonyms.add(syn);
+						}
+					}
+				}
+				//plain class hierarchy (no reasoning or OWL or OBO 'subset' concept utilized)
+				Set<String> directParents = new HashSet<String>();
+				ExtendedIterator<OntClass> parents = oclass.listSuperClasses();
+				while(parents.hasNext()){
+					OntClass p = parents.next();
+					directParents.add(p.getLabel(null));
+				}			
+
+				RDFCategory cat = new RDFCategory(accession, uri, title, directParents, definition, synonyms);
+				cat_map.add(cat);
+				System.out.println(c+"\t"+cat);
+			}else{
+				System.out.println(c+"\t"+title+"\tDEPRECATED");
+			}
+		}
+
+		return cat_map;
+
 	}
 	
 }

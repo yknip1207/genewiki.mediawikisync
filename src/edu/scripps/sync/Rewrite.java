@@ -182,7 +182,8 @@ public class Rewrite {
 				String link = src2.substring(a, b);
 				
 				// remove the label, if present
-				link = (link.indexOf('|') == -1) ? link : link.substring(a, link.indexOf('|'));
+				int pipe = link.indexOf('|');
+				link = (pipe == -1) ? link : src2.substring(a, a+pipe);
 				
 				// If the link does not exist (and is not a semantic wikilink or category), append 'wikipedia:'
 				if (!link.contains("::") && !link.contains("Category:") && !target.exists(link)[0]) {
