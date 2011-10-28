@@ -2,7 +2,6 @@ package edu.scripps.sync;
 
 import java.io.IOException;
 import java.sql.SQLException;
-import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -74,7 +73,7 @@ public class Rewrite {
 			try {
 				disease = anno.getAssociatedDisease(title);
 			} catch (SQLException e) {
-				// TODO do something useful with this
+				// We can let this pass; disease remains null and a default template is appended. 
 			}
 			// If it is a disease, write the GW+ template accordingly; if not,
 			// write a generic (no-parameter) GW+ template
@@ -159,7 +158,7 @@ public class Rewrite {
 	 * we append "wikipedia:" to have it point back to Wikipedia.
 	 * <br/>2. If the wikilink does not contain ':" and transcludes the {{PBB}} template, we append
 	 * "is_associated_with::" to make it a generic semantic link.
-	 * <br/>3. Therefore a link remains completely untouched if it contains "::", ':', or "Category:"
+	 * <br/>Thus, a link remains completely untouched if it contains "::", ':', or "Category:"
 	 * @param src article text
 	 * @param target target Wiki, to check for page existence
 	 * @return altered text if successful, original text if failed

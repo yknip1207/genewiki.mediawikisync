@@ -58,13 +58,16 @@ public class AnnotationDatabaseTests {
 				"diabetes mellitus type 1",
 				"obesity",
 				"hypoglycemia");
-		List<String> actual_gene = new ArrayList<String>(anno.getDiseaseAssociatedWithGene(geneId, null));
-		List<String> actual_page = new ArrayList<String>(anno.getDiseaseAssociatedWithGene(null, pageTitle));
+		List<String> actual_gene = new ArrayList<String>(anno.getDiseasesAssociatedWithGene(geneId, null, false));
+		List<String> actual_page = new ArrayList<String>(anno.getDiseasesAssociatedWithGene(null, pageTitle, false));
+		Set<String> filtered_actual_gene = anno.getDiseasesAssociatedWithGene(geneId, null, true);
 		Collections.sort(expected);
 		Collections.sort(actual_gene);
 		Collections.sort(actual_page);
 		assertEquals("Diseases returned from gene ID did not match expected.", expected, actual_gene);
 		assertEquals("Diseases returned from gene ID and page title did not match.", actual_gene, actual_page);
+		assertFalse("Failed to filter out less-specific diseases: set contains 'diabetes mellitus' " +
+				"when more specific terms should be available.", filtered_actual_gene.contains("diabetes mellitus"));
 	}
 	
 	@Test

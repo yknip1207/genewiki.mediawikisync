@@ -6,9 +6,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 import com.google.common.collect.Sets;
@@ -36,14 +34,14 @@ public class AnnotationDatabase {
 	public String getAssociatedDisease(String pageTitle) throws SQLException {
 		// Connect to the database
 		Connection 			c = this.connect();
-		// Retrieve the DO title associated with the title
+		// Prepare and execute the query
 		PreparedStatement 	ps = c.prepareStatement("select distinct(do_title) from title_do where title = ?");
-
 		ps.setString(1, pageTitle);
-//		ps.addBatch();
 		c.setAutoCommit(false);
 		ResultSet rs = ps.executeQuery();
-		// This will be null if nothing was found
+		// Retrieve the disease ontology term associated with the title. The method iterates
+		// even though there is only one expected result due to idiosyncracies in JDBC's ResultSet
+		// behavior (the ResultSet remains closed unless iterated upon).
 		String result = null;
 		while (rs.next()) {
 			result = rs.getString("do_title");
@@ -56,17 +54,29 @@ public class AnnotationDatabase {
 		return result;
 	}
 	
-	public Set<String> getDiseaseAssociatedWithGene(String geneId, String pageTitle) throws SQLException {
+	/**
+	 * Returns the set of diseases associated with a given gene, which can be specified by either the 
+	 * Entrez gene id or the page title (the other can be left as null). If both are given, the Entrez gene id is used.
+	 * If neither are specified (both null), the method throws an IllegalArgumentException. 
+	 * @param geneId the entrez gene id, or null if using the page title
+	 * @param pageTitle the title of the article on Gene Wiki+. Ignored if gene id is not null.
+	 * @param filterRedundant if true, return only the most specific disease terms associated with the gene (i.e. omits 'diabetes mellitus'
+	 * in favor of 'diabetes mellitus type 1')
+	 * @return set of diseases associated with gene
+	 * @throws SQLException if an error occurs reading or connecting to the database.
+	 * @throws IllegalArgumentException if both geneId and pageTitle are null
+	 */
+	public Set<String> getDiseasesAssociatedWithGene(String geneId, String pageTitle, boolean filterRedundant) throws SQLException {
 		// Connect to the database
 		Connection 			c 	= this.connect();
 		
 		// Alter our query depending on if we were supplied a gene id or page title
 		PreparedStatement	ps 	= null;
 		if (geneId != null) {
-			ps = c.prepareStatement("select target_preferred_term from cannos where gene_id=?");
+			ps = c.prepareStatement("select target_preferred_term,is_most_specific from cannos where gene_id=?");
 			ps.setString(1, geneId);
 		} else if (pageTitle != null) {
-			ps = c.prepareStatement("select target_preferred_term from cannos where title like ?");
+			ps = c.prepareStatement("select target_preferred_term,is_most_specific from cannos where title like ?");
 			ps.setString(1, pageTitle);
 		} else {
 			throw new IllegalArgumentException("Either gene id or page title must not be null.");
@@ -76,7 +86,11 @@ public class AnnotationDatabase {
 		// Iterate over the results and add each result to the list
 		Set<String> results = new HashSet<String>();
 		while (rs.next()) {
-			results.add(rs.getString("target_preferred_term"));
+			// If the user has specified to filter redundant categories and the category is not the most specific,
+			// we do not add it to the returned set
+			if (!(rs.getInt("is_most_specific") == 0 && filterRedundant)) {
+				results.add(rs.getString("target_preferred_term"));
+			}
 		}
 		// close resources
 		rs.close();
@@ -86,6 +100,12 @@ public class AnnotationDatabase {
 		return results;
 	}
 	
+	/**
+	 * Returns the set of diseases associated with a given single nucleotide polymorphism (SNP). 
+	 * @param snpAcc the SNP accession number (of the form Rs1234)
+	 * @return the set of diseases
+	 * @throws SQLException if an error occurs reading or connecting to the database.
+	 */
 	public Set<String> getDiseaseAssociatedWithSNP(String snpAcc) throws SQLException {
 		// Connect to the database
 		Connection 			c 	= this.connect();
@@ -108,6 +128,16 @@ public class AnnotationDatabase {
 		return results;
 	}
 	
+	/**
+	 * Returns the set of linked disease terms for either all genes or all SNPs. The passed string must be
+	 * either 'gene', in which case the set of all diseases linked to all genes in Gene Wiki+ is returned,
+	 * or 'snp', in which case the set of all diseases linked to all SNPs in Gene Wiki+ is returned. 
+	 * If the string is neither of these, an IllegalArgumentException is thrown.
+	 * @param geneOrSnp must be either 'gene' or 'snp'; determines which set of linked diseases is returned
+	 * @return the set of linked diseases
+	 * @throws SQLException if an error occurs reading or connecting to the database
+	 * @throws IllegalArgumentException if invalid string passed
+	 */
 	public Set<String> getLinkedDiseaseTerms(String geneOrSnp) throws SQLException {
 		// Detect option
 		Boolean gene = null; 
@@ -137,6 +167,12 @@ public class AnnotationDatabase {
 		return results;
 	}
 	
+	/**
+	 * Returns the set of linked disease terms for both genes and SNPs. This method obtains both respective sets
+	 * and returns the union of the two sets.
+	 * @return the union of the sets of linked diseases for genes and SNPs
+	 * @throws SQLException if an error occurs reading or connecting to the database
+	 */
 	public Set<String> getAllLinkedDiseaseTerms() throws SQLException {
 		// Convert all results to sets so we can perform a union on them
 		Set<String> genDiseases	= getLinkedDiseaseTerms("gene");
