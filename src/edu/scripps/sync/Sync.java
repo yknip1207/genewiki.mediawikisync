@@ -14,7 +14,7 @@ import org.genewiki.api.Wiki.Revision;
 import org.genewiki.util.Serialize;
 
 /**
- * Sync updates GeneWiki+ with the edits made to Wikipedia on specified pages in the specified
+ * Sync updates a target MediaWiki with the edits made to Wikipedia on specified pages in the specified
  * period. It converts the SWL template to a semantic link for Semantic Mediawiki, and converts
  * any interwiki links in the page text (that do not already exist on GW+) to links back to WP.
  * <p>
@@ -102,7 +102,7 @@ public abstract class Sync implements Runnable {
 				String text = source.getPageText(title);
 				Revision rev = source.getTopRevision(title);
 				if (rewrite) {
-					text = rewriteArticleContent(text);
+					text = rewriteArticleContent(text, title);
 				}
 				String summary = rev.getSummary();
 				String author = rev.getUser();
@@ -125,7 +125,7 @@ public abstract class Sync implements Runnable {
 	 * @param originalText original article text
 	 * @return article text modified
 	 */
-	abstract String rewriteArticleContent(String originalText);
+	abstract String rewriteArticleContent(String originalText, String title);
 	
 
 	

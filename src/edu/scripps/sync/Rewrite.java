@@ -21,28 +21,33 @@ import edu.scripps.resources.AnnotationDatabase;
 public class Rewrite {
 
 	/**
-	 * Appends a template specifying that the article is mirrored
+	 * Prepends a template specifying that the article is mirrored
 	 * from Wikipedia. The method does not insert the template if
 	 * it is already present; instead, it returns the unaltered
 	 * text. 
 	 * @param src
 	 * @return article text with a {{Mirrored}} template appended
 	 */
-	public static String appendMirroredTemplate(String src){
+	public static String prependMirroredTemplate(String src){
 		if (src.startsWith("{{Mirrored")) {
 			return src;
 		} else {
-			return "{{Mirrored | {{PAGENAME}} }} \n".concat(src);
+			return "{{Mirrored | {{PAGENAME}} }} \n" + src;
 		}
 	}
 	
 	/**
-	 * Prepends a template used for things to be included on all pages
-	 * that are mirrored on Wikipedia (i.e. all content articles).
-	 * @param src
-	 * @return
+	 * Appends a {{GW+}} template to the page, replacing any template that 
+	 * currently may exist on the page. The template has a type parameter added
+	 * if it is a gene page or a disease page; if it is a gene page, associated
+	 * SNPs are also appended as additional parameters to the template. If it is
+	 * neither a gene nor a disease, a generic {{GW+}} template is added.
+	 * @param src source text
+	 * @param title title of the page
+	 * @param wiki the target wiki (to check for SNPs associated with the gene, if gene)
+	 * @return src with template appended
 	 */
-	public static String prependGWPTemplate(String src, String title, Wiki wiki) {
+	public static String appendGWPTemplate(String src, String title, Wiki wiki) {
 		// First, remove any {{GW+}} template that may already be on the page
 		if (src.contains("{{GW+")) {
 			int a = src.indexOf("{{GW+") + 5;
@@ -87,8 +92,8 @@ public class Rewrite {
 	
 	/**
 	 * Modifies {{SWL}} templates to be semantic wikilinks.
-	 * @param src
-	 * @return
+	 * @param src source text 
+	 * @return source text with SWLs converted
 	 */
 	public static String convertSWLTemplates(String src) {
 		while (src.contains("{{SWL")) {

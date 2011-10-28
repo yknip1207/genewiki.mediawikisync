@@ -17,7 +17,7 @@ public class DefaultSync extends Sync {
 	}
 
 	@Override
-	String rewriteArticleContent(String originalText) {
+	String rewriteArticleContent(String originalText, String pageTitle) {
 		// TODO Add your rewrite rules here!
 		return originalText;
 	}

@@ -41,7 +41,7 @@ public class GeneWikiRewriteTests {
 	@Test
 	public void rewriteTest() {
 		GeneWikiSync gws = new GeneWikiSync(source, target, period, rewrite);
-		assertEquals(postArticle, gws.rewriteArticleContent(preArticle));
+		assertEquals(postArticle, gws.rewriteArticleContent(preArticle, null));
 	}
 
 }
