@@ -44,7 +44,7 @@ public class RewriteTests{
 		pre_testGWP			= Files.toString(new File("tests/generic-pre.wiki"), utf8);
 		post_testGWP		= Files.toString(new File("tests/generic-post.wiki"), utf8);
 		pre_testSWL			= defaultArticle;
-		post_testSWL		= Files.toString(new File("tests/pln-swlconvert.wiki"), utf8);
+		post_testSWL		= Files.toString(new File("tests/pln-swl.wiki"), utf8);
 		pre_testLinks		= defaultArticle;
 		post_testLinks		= Files.toString(new File("tests/pln-links.wiki"), utf8);
 	}
@@ -80,14 +80,22 @@ public class RewriteTests{
 	@Test
 	public void convertSWLTemplatesTest() {
 		String result = Rewrite.convertSWLTemplates(pre_testSWL);
+		System.out.println(result);
 		assertEquals(post_testSWL, result);
 	}
 	
 	@Test
 	public void fixLinksTest() {
-		String result = Rewrite.fixLinks(pre_testLinks, target);
-		System.out.println(result);
-		assertEquals(post_testLinks, result);
+		String testLink1 		= "[[this_is::already_semantic]]";
+		String testLink2_pre 	= "[[this link|does not exist]]";
+		String testLink2_post 	= "[[wikipedia:this link|does not exist]]";
+		String testLink3		= "[[Category:ignore]]";
+		String testLink4		= "[[Image:just kidding]]";
+		assertEquals(testLink1, Rewrite.fixLinks(testLink1, target));
+		assertEquals(testLink2_post, Rewrite.fixLinks(testLink2_pre, target));
+		assertEquals(testLink2_post, Rewrite.fixLinks(testLink2_post, target));
+		assertEquals(testLink3, Rewrite.fixLinks(testLink3, target));
+		assertEquals(testLink4, Rewrite.fixLinks(testLink4, target));
 	}
 
 }

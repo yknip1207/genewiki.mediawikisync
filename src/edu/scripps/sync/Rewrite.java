@@ -65,9 +65,9 @@ public class Rewrite {
 				e.printStackTrace();
 				return src;
 			}
-			StringBuilder gw = new StringBuilder("\n{{GW+|gene|");
+			StringBuilder gw = new StringBuilder("\n{{GW+|gene");
 			for (String snp : snps) {
-				gw.append(snp).append("|");
+				gw.append('|').append(snp);
 			}
 			gw.append("}}\n");
 			return src + gw.toString();
@@ -186,7 +186,7 @@ public class Rewrite {
 				link = (pipe == -1) ? link : src2.substring(a, a+pipe);
 				
 				// If the link does not exist (and is not a semantic wikilink or category), append 'wikipedia:'
-				if (!link.contains("::") && !link.contains("Category:") && !target.exists(link)[0]) {
+				if (!link.contains("::") && !link.contains(":") && !link.contains("Category:") && !target.exists(link)[0]) {
 					src2 = src2.substring(0, a-1) + "wikipedia:" + src2.substring(a);
 				// else if it's part of the Gene Wiki and not a special link (like File: or en:), make it a semantic link
 				} else if (src.contains("{{PBB") && !link.contains(":")) {

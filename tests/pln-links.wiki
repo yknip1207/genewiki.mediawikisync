@@ -1,0 +1,58 @@
+{{Pfam box
+| Symbol = Phospholamban
+| Name = 
+| image =1zll opm.gif
+| width =200
+| caption =Phospholamban pentamer
+| Pfam= PF04272
+| InterPro= IPR005984
+| SMART=
+| Prosite =
+| SCOP = 1fjk
+| TCDB =  8.A.11
+| OPM family= 70
+| OPM protein= 1zll
+| PDB=
+{{PDB3|1n7l}}A:1-52      {{PDB3|1pln}}D:35-52     {{PDB3|1k9n}}A:35-52
+{{PDB3|1plp}} :1-24      {{PDB3|1zll}}E:1-52      {{PDB3|1kch}}A:35-52
+{{PDB3|1psl}}C:35-52     {{PDB3|1fjk}}A:1-52      {{PDB3|1fjp}}A:1-52
+}}
+{{PBB|geneid=5350}}
+
+'''Phospholamban''', also known as '''PLN''', is a [[protein]] that in humans is encoded by the ''PLN'' [[gene]].<ref name="pmid1828805">{{cite journal | author = Fujii J, Zarain-Herzberg A, Willard HF, Tada M, MacLennan DH | title = Structure of the rabbit phospholamban gene, cloning of the human cDNA, and assignment of the gene to human chromosome 6 | journal = J. Biol. Chem. | volume = 266 | issue = 18 | pages = 11669–75 | year = 1991 | month = June | pmid = 1828805 | doi = | url = http://www.jbc.org/cgi/pmidlookup?view=long&pmid=1828805 | issn = }}</ref> Phospholamban is a 52-[[amino acid]] [[integral membrane protein]] that regulates the [[Calcium|Ca<sup>2+</sup>]] pump in [[cardiac muscle]] and [[skeletal muscle]] cells.<ref name="pmid16435604">{{cite journal | author = Rodriguez P, Kranias EG | title = Phospholamban: a key determinant of cardiac function and dysfunction | journal = Arch Mal Coeur Vaiss | volume = 98 | issue = 12 | pages = 1239–43 | year = 2005 | month = December | pmid = 16435604 | doi = | url = | issn = }}</ref>
+ 
+== Function ==
+
+The protein encoded by this gene is found as a pentamer and is a major substrate for the cAMP-dependent protein kinase ({{SWL|target=protein kinase A|label=PKA|type=substrate_for}}) in cardiac muscle. The protein is an inhibitor of cardiac muscle sarcoplasmic reticulum Ca<sup>++</sup>-ATPase ({{SWL|target=SERCA|type=negatively_regulates_gene_product}}) in the unphosphorylated state, but inhibition is relieved upon [[phosphorylation]] of the protein. The subsequent activation of the Ca<sup>++</sup> pump leads to shorter intervals between contractions, thereby contributing to the [[lusitropic]] response elicited in heart by [[beta2-adrenergic agonist|beta-agonist]]s. The  protein is a key regulator of  {{SWL|target=diastole|label=cardiac diastolic function|type=regulates_biological_process}}. Mutations in this gene are a cause of inherited human [[dilated cardiomyopathy]] with refractory [[congestive heart failure]].<ref>{{cite web | title = Entrez Gene: PLN phospholamban| url = http://www.ncbi.nlm.nih.gov/sites/entrez?Db=gene&Cmd=ShowDetailView&TermToSearch=5350| accessdate = }}</ref>
+
+When phospholamban is [[phosphorylated]] by {{SWL|target=protein kinase A|label=PKA|type=phosphorylated_by}} its ability to inhibit the sarcoplasmic reticulum calcium pump (SERCA) is lost.<ref name="isbn0-8089-2333-1">{{cite book | author = | authorlink = | editor = | others = | title = Medical Physiology | edition = | language = | publisher = Saunders | location = Philadelphia | year = 2004 | origyear = | pages = | quote = | isbn = 0-8089-2333-1 | oclc = | doi = | url = | accessdate = }}</ref> Thus, activators of PKA, such as the beta-adrenergic agonist [[epinephrine]] (released by [[sympathetic nervous system|sympathetic]] stimulation), may enhance the rate of cardiac myocyte relaxation. In addition, since SERCA is more active, the next [[action potential]] will cause an increased release of calcium, resulting in increased contraction (positive [[inotropic]] effect). When phospholamban is not phosphorylated, such as when PKA is inactive, it can interact with and inhibit SERCA. The overall effect of phospholamban is to decrease the rate of {{SWL|target=muscle relaxation|type=negatively_regulates_biological_process}} and {{SWL|target=contractility|type=negatively_regulates_biological_process}}, thereby decreasing heart rate and stroke volume, respectively.<ref name="pmid11112989">{{cite journal | author = Brittsan AG, Kranias EG | title = Phospholamban and cardiac contractile function | journal = J. Mol. Cell. Cardiol. | volume = 32 | issue = 12 | pages = 2131–9 | year = 2000 | month = December | pmid = 11112989 | doi = 10.1006/jmcc.2000.1270 | url =  }}</ref>
+
+== Clinical significance ==
+
+Gene knockout of phospholamban results in animals with hyperdynamic hearts, with little apparent negative consequence.<ref name="pmid8062415">{{cite journal | author = Luo W, Grupp IL, Harrer J, Ponniah S, Grupp G, Duffy JJ, Doetschman T, Kranias EG | title = Targeted ablation of the phospholamban gene is associated with markedly enhanced myocardial contractility and loss of beta-agonist stimulation | journal = Circ. Res. | volume = 75 | issue = 3 | pages = 401–9 | year = 1994 | month = September | pmid = 8062415 | doi = | url = | issn = }}</ref>
+
+Mutations in this gene are a cause of inherited human dilated {{SWL|target=cardiomyopathy|type=associated_with_disease}} with refractory {{SWL|target=congestive heart failure|type=associated_with_disease}}.<ref name="pmid12610310">{{cite journal | author = Schmitt JP, Kamisago M, Asahi M, Li GH, Ahmad F, Mende U, Kranias EG, MacLennan DH, Seidman JG, Seidman CE | title = Dilated cardiomyopathy and heart failure caused by a mutation in phospholamban | journal = Science | volume = 299 | issue = 5611 | pages = 1410–3 | year = 2003 | month = February | pmid = 12610310 | doi = 10.1126/science.1081578 | url =  }}</ref>
+
+== Discovery ==
+
+Phospholamban was discovered by Arnold Katz and coworkers in 1974.<ref name="pmid4371608">{{cite journal | author = Tada M, Kirchberger MA, Repke DI, Katz AM | title = The stimulation of calcium transport in cardiac sarcoplasmic reticulum by adenosine 3':5'-monophosphate-dependent protein kinase | journal = J Biol Chem | volume = 10 | issue = 249(19) | pages = 6174–80 | year = 1974 | month = October | pmid = 4371608 | doi = | url = | issn = }}</ref>
+
+==Interactions==
+PLN (gene) has been shown to [[Protein-protein_interaction|interact]] with [[Sarcolipin|SLN]]<ref name=pmid12692302>{{cite journal |last=Asahi |first=Michio |authorlink= |coauthors=Sugita Yuji, Kurzydlowski Kazimierz, De Leon Stella, Tada Michihiko, Toyoshima Chikashi, MacLennan David H |year=[[2003]]|month=Apr. |title=Sarcolipin regulates sarco(endo)plasmic reticulum Ca2+-ATPase (SERCA) by binding to transmembrane helices alone or in association with phospholamban |journal=[[PNAS|Proc. Natl. Acad. Sci. U.S.A.]] |volume=100 |issue=9 |pages=5040–5 |publisher= |location = United States| issn = 0027-8424| pmid = 12692302 |doi = 10.1073/pnas.0330962100 | bibcode = | oclc =| id = | url = | language = | format = | accessdate = | laysummary = | laysource = | laydate = | quote = |pmc=154294 }}</ref><ref name=pmid12032137>{{cite journal |last=Asahi |first=Michio |authorlink= |coauthors=Kurzydlowski Kazimierz, Tada Michihiko, MacLennan David H |year=[[2002]]|month=Jul. |title=Sarcolipin inhibits polymerization of phospholamban to induce superinhibition of sarco(endo)plasmic reticulum Ca2+-ATPases (SERCAs) |journal=J. Biol. Chem. |volume=277 |issue=30 |pages=26725–8 |publisher= |location = United States| issn = 0021-9258| pmid = 12032137 |doi = 10.1074/jbc.C200269200 | bibcode = | oclc =| id = | url = | language = | format = | accessdate = | laysummary = | laysource = | laydate = | quote = }}</ref> and [[ATP2A1]].<ref name=pmid12032137/><ref name=pmid10551848>{{cite journal |last=Asahi |first=M |authorlink= |coauthors=Kimura Y, Kurzydlowski K, Tada M, MacLennan D H |year=[[1999]]|month=Nov. |title=Transmembrane helix M6 in sarco(endo)plasmic reticulum Ca(2+)-ATPase forms a functional interaction site with phospholamban. Evidence for physical interactions at other sites |journal=J. Biol. Chem. |volume=274 |issue=46 |pages=32855–62 |publisher= |location = UNITED STATES| issn = 0021-9258| pmid = 10551848 | bibcode = | oclc =| id = | url = | language = | format = | accessdate = | laysummary = | laysource = | laydate = | quote = |doi=10.1074/jbc.274.46.32855 }}</ref><ref name=pmid11526231>{{cite journal |last=Asahi |first=M |authorlink= |coauthors=Green N M, Kurzydlowski K, Tada M, MacLennan D H |year=[[2001]]|month=Aug. |title=Phospholamban domain IB forms an interaction site with the loop between transmembrane helices M6 and M7 of sarco(endo)plasmic reticulum Ca2+ ATPases |journal=[[PNAS|Proc. Natl. Acad. Sci. U.S.A.]] |volume=98 |issue=18 |pages=10061–6 |publisher= |location = United States| issn = 0027-8424| pmid = 11526231 |doi = 10.1073/pnas.181348298 | bibcode = | oclc =| id = | url = | language = | format = | accessdate = | laysummary = | laysource = | laydate = | quote = |pmc=56915 }}</ref>
+
+== References ==
+{{Reflist}}
+
+==External links==
+* {{UMichOPM|families|superfamily|70}} - Orientations of phospholamban and sarcolipin in membrane]
+
+{{NLM content}}
+{{PDB Gallery|geneid=5350}}
+{{Calcium signaling}}
+
+[[Category:Protein domains]]
+[[Category:Single-pass transmembrane proteins]]
+
+[[de:Phospholamban]]
+[[id:Fosfolamban]]
+[[ta:பாஸ்ஃபோலாம்பன்]]
