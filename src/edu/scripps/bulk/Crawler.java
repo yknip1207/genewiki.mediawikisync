@@ -2,10 +2,13 @@ package edu.scripps.bulk;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -13,10 +16,10 @@ import java.util.regex.Pattern;
 import javax.security.auth.login.CredentialNotFoundException;
 import javax.security.auth.login.FailedLoginException;
 import javax.security.auth.login.LoginException;
-
 import org.genewiki.api.Wiki;
 import org.genewiki.util.Serialize;
 
+import edu.scripps.resources.AnnotationDatabase;
 import edu.scripps.sync.RDFCategory;
 import edu.scripps.sync.Rewrite;
 
@@ -36,7 +39,7 @@ public class Crawler {
 	
 	
 	@SuppressWarnings("unchecked")
-	public static void main(String[] args) throws FailedLoginException, IOException, CredentialNotFoundException {
+	public static void main(String[] args) throws FailedLoginException, IOException, CredentialNotFoundException, SQLException {
 		Wiki target = new Wiki("genewikiplus.org", "");
 		Wiki source = new Wiki();
 		Wiki edited = new Wiki();
@@ -48,10 +51,10 @@ public class Crawler {
 		target.setThrottle(0);
 		edited.login("genewikiplus_extended", args[2].toCharArray());
 		List<String> previouslyEdited = new ArrayList<String>();
-		try {previouslyEdited = (ArrayList<String>) Serialize.in("completed.list.str.ser"); }
+		try {previouslyEdited = (ArrayList<String>) Serialize.in("completed.list.string.ser"); }
 		catch (Exception e) { previouslyEdited = new ArrayList<String>(); }
 		List<String> failed = new ArrayList<String>();
-		try {failed = (ArrayList<String>) Serialize.in("failed.list.str.ser"); }
+		try {failed = (ArrayList<String>) Serialize.in("failed.list.string.ser"); }
 		catch (Exception e) { failed = new ArrayList<String>(); }
 		Crawler crawler = new Crawler(source, target, previouslyEdited, failed);
 //		ArrayList<String> all = new ArrayList<String>(crawler.findAllArticles(target));
@@ -69,13 +72,16 @@ public class Crawler {
 //		Collections.reverse(watchlist);
 //		int start = watchlist.indexOf("PTPN1");
 //		watchlist = watchlist.subList(start, watchlist.size());
-		Set<RDFCategory> imports = RDFCategory.getCategories("file:/Users/eclarke/Downloads/doid.owl");
-		crawler.createCategories(imports, -1);
-
+//		Set<RDFCategory> imports = RDFCategory.getCategories("file:/Users/eclarke/Downloads/doid.owl", true);
+//		Set<String> symbols = new AnnotationDatabase("annotations.db").getAllSymbols();
+//		Set<String> modified = crawler.createRedirectsForGeneSymbols(symbols, -1);
+//		Files.write(modified.toString(), new File("modified.set"), Charset.forName("UTF-8"));
+		List<String> genePages = findAllGenePages(target);
+		crawler.edit(genePages, 3);
 		
 	}
 	
-	public List<String> findAllArticles(Wiki wiki) {
+	public static List<String> findAllArticles(Wiki wiki) {
 		try {
 			// 0 is article namespace
 			return Arrays.asList(wiki.listPages("", Wiki.NO_PROTECTION, 0));
@@ -85,7 +91,7 @@ public class Crawler {
 		}
 	}
 	
-	public List<String> findAllTemplates(Wiki wiki) {
+	public static List<String> findAllTemplates(Wiki wiki) {
 		try {
 			// 10 is template namespace
 			return Arrays.asList(wiki.listPages("", Wiki.NO_PROTECTION, 10));
@@ -95,7 +101,7 @@ public class Crawler {
 		}
 	}
 	
-	public List<String> findAllCategories(Wiki wiki) {
+	public static List<String> findAllCategories(Wiki wiki) {
 		try {
 			// 14 is category namespace
 			return Arrays.asList(wiki.listPages("", Wiki.NO_PROTECTION, 14));
@@ -103,6 +109,115 @@ public class Crawler {
 			e.printStackTrace();
 			return Collections.emptyList();
 		}
+	}
+	
+	public static String getCategoryForDOID(String doid, Wiki wiki) {
+		try {
+			Map<String, List<String>> category = wiki.askQuery("hasDOID", doid);
+			if (category.keySet().size() > 1) {
+				throw new RuntimeException("More than one category maps to that DOID.");
+			}
+			String title = null;
+			for (String cat : category.keySet()) {
+				title = cat.replace("Category:", "");
+			}
+			return title;
+		} catch (IOException e) {
+			e.printStackTrace();
+			return "";
+		}
+	}
+	
+	public static List<String> findAllGenePages(Wiki wiki) {
+		try {
+			return Arrays.asList(wiki.whatTranscludesHere("Template:GNF_Protein_box", 0));
+		} catch (IOException e) {
+			e.printStackTrace();
+			return Collections.emptyList();
+		}
+	}
+	
+	public static List<String> findAllSNPediaPages(Wiki wiki) {
+		try {
+			return Arrays.asList(wiki.whatTranscludesHere("Template:Snpedia_attrib", 0));
+		} catch (IOException e) {
+			e.printStackTrace();
+			return Collections.emptyList();
+		}
+	}
+	
+	/**
+	 * Creates a redirect page for all gene symbols that do not currently
+	 * @param symbols
+	 * @param optionalLimit
+	 * @return
+	 */
+	public Set<String> createRedirectsForGeneSymbols(Set<String> symbols, int optionalLimit) {
+		int completedThisRound = 0;
+		// We record the pages that had the name of gene symbols but were not gene pages
+		// to add this awareness to the ongoing synchronization re-writes
+		Set<String> modifiedNonGeneArticles = new HashSet<String>();
+		for (String sym : symbols) {
+			// If we've attempted this before, skip it.
+			if (completed.contains(sym)) {
+				continue;
+			} else if (failed.contains(sym)) {
+				continue;
+			}
+			
+			try {
+				// If the page exists already and is a gene page (not a disambig page), 
+				// do nothing. If it exists but isn't a gene page, make it a redirect. If
+				// it doesn't exist, create a new redirect.			
+				if (target.exists(sym)[0]) {
+					String text = target.getPageText(sym);
+					if (!text.contains("{{PBB|geneid=")) {
+						AnnotationDatabase anno = new AnnotationDatabase("annotations.db");
+						String title = anno.getPageTitle(sym); 
+						if (title != null) {
+							text = "#REDIRECT [["+title+"]]\n\n"+text;
+							target.edit(sym, text, "Altered to become redirect to "+title+".", false);
+							modifiedNonGeneArticles.add(sym);
+						}
+					}
+					completedThisRound++;
+				} else {
+					AnnotationDatabase anno = new AnnotationDatabase("annotations.db");
+					String title = anno.getPageTitle(sym); 
+					// Make sure the article exists before redirecting.
+					if (title != null) {
+						String text = "#REDIRECT [["+title+"]]\n";
+						target.edit(sym, text, "Created redirect to "+title+".", false);
+					}
+					completedThisRound++;
+				}
+				completed.add(sym);
+				Serialize.out("completed.list.str.ser", new ArrayList<String>(completed));
+				System.out.printf("Completed %d (%d this round) of %d edits.\n", completed.size(), completedThisRound, symbols.size());
+				
+				// If the optional limit is set and we've hit it, break out of the for loop
+				if (optionalLimit != -1 && completedThisRound >= optionalLimit) {
+					System.out.println("Optional limit reached, exiting.");
+					break;
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+				failed.add(sym);
+				Serialize.out("failed.list.str.ser", new ArrayList<String>(failed));
+				System.out.printf("Failed to update gene symbol %s.", sym);
+			} catch (SQLException e) {
+				e.printStackTrace();
+				failed.add(sym);
+				Serialize.out("failed.list.str.ser", new ArrayList<String>(failed));
+				System.out.printf("Failed to update gene symbol %s.", sym);
+			} catch (LoginException e) {
+				e.printStackTrace();
+				failed.add(sym);
+				Serialize.out("failed.list.str.ser", new ArrayList<String>(failed));
+				System.out.printf("Failed to update gene symbol %s.", sym);
+			}
+		}
+		return modifiedNonGeneArticles;
 	}
 	
 	/**
@@ -146,7 +261,8 @@ public class Crawler {
 		return completed;
 	}
 	
-	public List<String> edit(List<String> titles) {
+	public List<String> edit(List<String> titles, int optionalLimit) {
+		int completedThisRound = 0;
 		for (String title : titles) {
 			try {
 				if (completed.contains(title))
@@ -159,19 +275,24 @@ public class Crawler {
 				catch (FileNotFoundException e) { e.printStackTrace(); continue; }
 				
 				//---- actual rewrite logic goes here ----
-				src = Rewrite.appendGWPTemplate(src, title, target);
+				log("Appending categories to SNP "+title);
+				String src2 = Rewrite.appendCategories(src, title, "annotations.db", target, false);
 				//----
 				
-				try { target.edit(title, src, "Adding {{GW+}} template", true); }
-				catch (LoginException e) { e.printStackTrace(); continue; }
-				log("Successfully edited "+title+": "+(titles.indexOf(title)+1)+"/"+titles.size());
+				if (!src2.equals(src)) {
+					try { target.edit(title, src2, "Added disease ontology terms to "+title, true); }
+					catch (LoginException e) { e.printStackTrace(); continue; }
+				} else {
+					log("No changes were made to the source text; moving on.");
+				}
+				log(String.format("Completed %d (%d this round) of %d edits.\n", completed.size(), completedThisRound, titles.size()));
 				
 				// we should read-in the latest version in case a different process has edited it
 //				try { completed = (List<String>) Serialize.in("completed.list.string.ser"); }
 //				catch (Exception e) { /* do nothing */ }
 				completed.add(title);
 				Serialize.out("completed.list.string.ser", new ArrayList<String>(completed));
-				
+				completedThisRound++;
 			} catch (Exception e) { 
 				e.printStackTrace();
 				
@@ -180,9 +301,17 @@ public class Crawler {
 //				catch (Exception e2) {/* do nothing */};
 				failed.add(title);
 				Serialize.out("failed.list.string.ser", new ArrayList<String>(failed));
+				completedThisRound++;
 				continue;
 			}
+			
+			// If the optional limit is set and we've hit it, break out of the for loop
+			if (optionalLimit != -1 && completedThisRound >= optionalLimit) {
+				System.out.println("Optional limit reached, exiting.");
+				break;
+			}
 		}
+		log("Finished.");
 		return completed;
 	}
 	

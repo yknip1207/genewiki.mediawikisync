@@ -56,16 +56,16 @@ public class RDFCategory {
 	public String Uri()  { return uri;  }
 	public String Doid() { return doid; }
 	public String formattedDOID() {
-		return "[[hasDOID::"+doid+"]]";
+		return "\n{{#set:hasDOID="+doid+"}}\n";
 	}
 	public String formattedUri() { 
-		return "[[equivalent URI:="+uri+"]]";
+		return "\n[[equivalent URI:="+uri+"]]\n";
 	}
 	public String Description() { 
 		if (description == null) {
 			return "";
 		} else {
-			return description; 
+			return description+"\n";
 		}
 	}	
 	
@@ -95,7 +95,7 @@ public class RDFCategory {
 	 */
 	public String toString() {
 		StringBuilder sb = new StringBuilder(this.Description()+"\n");
-		sb.append(this.formattedUri()+"\n");
+		sb.append(this.formattedUri()).append(this.formattedDOID());
 		for (String category : this.Parents()) {
 			sb.append("[[Category:"+category+"]]\n"); // append all the category names to which this object belongs
 		}
@@ -119,13 +119,21 @@ public class RDFCategory {
 			// be ignored (i.e. in existingCats but not in Parents)
 			Set<String> missing = Sets.difference(category.Parents(), new HashSet<String>(existingCats));
 			String text = target.getPageText(name);
+			if (!text.contains(category.Description())) {
+				text = category.Description() + text;
+			}
+
+
+			// Add any missing categories
+			for (String mcat : missing) {
+				text += "[[Category:"+mcat+"]]\n";
+			}
 			// Add equivalent URI if it doesn't already exist
 			if (!text.contains(category.formattedUri())) {
 				text += category.formattedUri();
 			}
-			// Add any missing categories
-			for (String mcat : missing) {
-				text += "[[Category:"+mcat+"]]\n";
+			if (!text.contains(category.formattedDOID())) {
+				text += category.formattedDOID();
 			}
 			try {
 				target.edit(name, text, "Added equivalent URI and missing DO categories (if any)", false);
@@ -144,7 +152,8 @@ public class RDFCategory {
 			}
 		}
 	}
-	
+
+	/*
 	public static Set<RDFCategory> getCategories(String input_ont_file){
 		Set<RDFCategory> categories = new HashSet<RDFCategory>();
 		OntModel ont = ModelFactory.createOntologyModel(OntModelSpec.OWL_DL_MEM); 
@@ -203,6 +212,7 @@ public class RDFCategory {
 
 		return categories;
 	}
+	*/
 	
 	/**
 	 * Read an OWL ontology and produce a simple list of category/class objects.  If OBO, it uses their properties.
@@ -211,7 +221,7 @@ public class RDFCategory {
 	 * @param fromobo
 	 * @return
 	 */
-	public Set<RDFCategory> getCategories(String input_ont_file, boolean fromobo){
+	public static Set<RDFCategory> getCategories(String input_ont_file, boolean fromobo){
 		Set<RDFCategory> cat_map = new HashSet<RDFCategory>();
 		OntModel ont = ModelFactory.createOntologyModel(OntModelSpec.OWL_DL_MEM); 
 		ont.read(input_ont_file);

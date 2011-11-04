@@ -1,12 +1,15 @@
 package edu.scripps.resources;
 
+import java.io.File;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import com.google.common.collect.Sets;
@@ -19,9 +22,14 @@ public class AnnotationDatabase {
 	 * Creates a new AnnotationDatabase utility that connects to 
 	 * the specified database.
 	 * @param dbpath the path to the database, including the database name.
+	 * @throws IllegalArgumentException if dbpath does not point to a valid file
 	 */
 	public AnnotationDatabase(String dbpath) {
-		dbName = dbpath;
+		if (new File(dbpath).exists()) {
+			dbName = dbpath;
+		} else {
+			throw new IllegalArgumentException("Specified annotation database file not found.");
+		}
 	}
 
 	/**
@@ -32,13 +40,11 @@ public class AnnotationDatabase {
 	 * @throws SQLException if an error occurs reading or connecting to the database.
 	 */
 	public String getAssociatedDisease(String pageTitle) throws SQLException {
-		// Connect to the database
-		Connection 			c = this.connect();
-		// Prepare and execute the query
-		PreparedStatement 	ps = c.prepareStatement("select distinct(do_title) from title_do where title = ?");
+		Connection 			c 	= this.connect();
+		PreparedStatement 	ps 	= c.prepareStatement("select distinct(do_title) from title_do where title = ?");
 		ps.setString(1, pageTitle);
 		c.setAutoCommit(false);
-		ResultSet rs = ps.executeQuery();
+		ResultSet 			rs 	= ps.executeQuery();
 		// Retrieve the disease ontology term associated with the title. The method iterates
 		// even though there is only one expected result due to idiosyncracies in JDBC's ResultSet
 		// behavior (the ResultSet remains closed unless iterated upon).
@@ -46,8 +52,7 @@ public class AnnotationDatabase {
 		while (rs.next()) {
 			result = rs.getString("do_title");
 		}
-		// Close resources
-		rs.close();
+
 		ps.close();
 		c.close();
 
@@ -66,34 +71,30 @@ public class AnnotationDatabase {
 	 * @throws SQLException if an error occurs reading or connecting to the database.
 	 * @throws IllegalArgumentException if both geneId and pageTitle are null
 	 */
-	public Set<String> getDiseasesAssociatedWithGene(String geneId, String pageTitle, boolean filterRedundant) throws SQLException {
-		// Connect to the database
-		Connection 			c 	= this.connect();
-		
+	public Map<String,String> getDiseasesAssociatedWithGene(String geneId, String pageTitle, boolean filterRedundant) throws SQLException {
+		Connection 			c 	= this.connect();		
 		// Alter our query depending on if we were supplied a gene id or page title
 		PreparedStatement	ps 	= null;
 		if (geneId != null) {
-			ps = c.prepareStatement("select target_preferred_term,is_most_specific from cannos where gene_id=?");
+			// If "filterRedundant" is true, we limit to only the most specific terms
+			ps = c.prepareStatement("select target_acc,target_preferred_term from cannos where gene_id=?" + 
+					((filterRedundant) ? "and is_most_specific=1" : ""));
 			ps.setString(1, geneId);
 		} else if (pageTitle != null) {
-			ps = c.prepareStatement("select target_preferred_term,is_most_specific from cannos where title like ?");
+			ps = c.prepareStatement("select target_acc,target_preferred_term from cannos where title like ?" +
+					((filterRedundant) ? "and is_most_specific=1" : ""));
 			ps.setString(1, pageTitle);
 		} else {
 			throw new IllegalArgumentException("Either gene id or page title must not be null.");
 		}
 		ResultSet rs = ps.executeQuery();
 
-		// Iterate over the results and add each result to the list
-		Set<String> results = new HashSet<String>();
+
+		Map<String, String> results = new HashMap<String, String>();
 		while (rs.next()) {
-			// If the user has specified to filter redundant categories and the category is not the most specific,
-			// we do not add it to the returned set
-			if (!(rs.getInt("is_most_specific") == 0 && filterRedundant)) {
-				results.add(rs.getString("target_preferred_term"));
-			}
+			results.put(rs.getString("target_acc").replace(':', '_'), rs.getString("target_preferred_term"));
 		}
-		// close resources
-		rs.close();
+
 		ps.close();
 		c.close();
 		
@@ -103,25 +104,24 @@ public class AnnotationDatabase {
 	/**
 	 * Returns the set of diseases associated with a given single nucleotide polymorphism (SNP). 
 	 * @param snpAcc the SNP accession number (of the form Rs1234)
+	 * @param filterRedundant limit the returned diseases to only the most specific (i.e. lowest possible on
+	 * category tree)
 	 * @return the set of diseases
 	 * @throws SQLException if an error occurs reading or connecting to the database.
 	 */
-	public Set<String> getDiseaseAssociatedWithSNP(String snpAcc) throws SQLException {
-		// Connect to the database
+	public Map<String,String> getDiseaseAssociatedWithSNP(String snpAcc, boolean filterRedundant) throws SQLException {
+
 		Connection 			c 	= this.connect();
-		// Create and execute query
-		PreparedStatement 	ps 	= c.prepareStatement("select target_preferred_term from snp_cannos where snp_id=?");
+		PreparedStatement 	ps 	= c.prepareStatement("select target_acc, target_preferred_term from snp_cannos where snp_id=?" +
+				((filterRedundant) ? "and is_most_specific=1" : ""));
 		ps.setString(1, snpAcc);
 		ResultSet rs = ps.executeQuery();
 		
-		// Iterate over results and add each to the list
-		Set<String> results = new HashSet<String>();
+		Map<String,String> results = new HashMap<String,String>();
 		while (rs.next()) {
-			results.add(rs.getString("target_preferred_term"));
+			results.put(rs.getString("target_acc").replace(':', '_'), rs.getString("target_preferred_term"));
 		}
 		
-		// close resources
-		rs.close();
 		ps.close();
 		c.close();
 		
@@ -148,19 +148,17 @@ public class AnnotationDatabase {
 		} else {
 			throw new IllegalArgumentException("Illegal option: must be 'gene' or 'snp'.");
 		}
-		// Connect to the database
+
 		Connection 		c 		= this.connect();
-		// Create and execute query, choosing table based on option specified
 		String 			query 	= "select distinct(target_preferred_term) from "+((gene) ? "cannos" : "snp_cannos");
 		Statement		s		= c.createStatement();
 		ResultSet 		rs		= s.executeQuery(query);
 		
-		// Iteratively parse results
 		Set<String> 	results	= new HashSet<String>();
 		while (rs.next()) {
 			results.add(rs.getString("target_preferred_term"));
 		}
-		rs.close();
+
 		s.close();
 		c.close();
 		
@@ -180,6 +178,45 @@ public class AnnotationDatabase {
 		Set<String> union		= Sets.union(genDiseases, snpDiseases);
 
 		return union;
+	}
+	
+	/**
+	 * Returns the corresponding page title for a human gene symbol. If the article does not exist,
+	 * returns <tt>null</tt>.
+	 * @param gene_sym HUGO gene symbol
+	 * @return corresponding page title, if exists; if it does not exist, value is null
+	 * @throws SQLException if an error occurs reading or connecting to the database
+	 */
+	public String getPageTitle(String gene_sym) throws SQLException {
+		Connection 			c	= this.connect();
+		PreparedStatement 	ps 	= c.prepareStatement("select gene_wiki_title from gene_id_map where gene_symbol=?");
+		ps.setString(1, gene_sym);
+		ResultSet 			rs 	= ps.executeQuery();
+		
+
+		String title = null;
+		// Though we're only expecting one result, we iterate through it because this JDBC implementation
+		// seems to require it...?
+		while (rs.next()) {
+			title = rs.getString("gene_wiki_title");
+		}
+		
+		ps.close();
+		c.close();
+		
+		return title;
+		
+	}
+	
+	public Set<String> getAllSymbols() throws SQLException {
+		Connection 	c 	= this.connect();
+		Set<String> sym	= new HashSet<String>(); 
+		Statement 	s	= c.createStatement();
+		ResultSet	rs	= s.executeQuery("select gene_symbol from gene_id_map");
+		while (rs.next()) {
+			sym.add(rs.getString("gene_symbol"));
+		}
+		return sym;
 	}
 	
 	/**

@@ -6,6 +6,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -58,9 +59,9 @@ public class AnnotationDatabaseTests {
 				"diabetes mellitus type 1",
 				"obesity",
 				"hypoglycemia");
-		List<String> actual_gene = new ArrayList<String>(anno.getDiseasesAssociatedWithGene(geneId, null, false));
-		List<String> actual_page = new ArrayList<String>(anno.getDiseasesAssociatedWithGene(null, pageTitle, false));
-		Set<String> filtered_actual_gene = anno.getDiseasesAssociatedWithGene(geneId, null, true);
+		List<String> actual_gene = new ArrayList<String>(anno.getDiseasesAssociatedWithGene(geneId, null, false).values());
+		List<String> actual_page = new ArrayList<String>(anno.getDiseasesAssociatedWithGene(null, pageTitle, false).values());
+		Set<String> filtered_actual_gene = new HashSet<String>(anno.getDiseasesAssociatedWithGene(geneId, null, true).values());
 		Collections.sort(expected);
 		Collections.sort(actual_gene);
 		Collections.sort(actual_page);
@@ -74,16 +75,26 @@ public class AnnotationDatabaseTests {
 	public void getDiseaseAssociatedWithSNPTest() throws SQLException {
 		String snpAcc = "Rs10012";
 		List<String> expected 	= Arrays.asList("colorectal cancer", "malignant neoplasm");
-		List<String> actual		= new ArrayList<String>(anno.getDiseaseAssociatedWithSNP(snpAcc));
+		List<String> actual		= new ArrayList<String>(anno.getDiseaseAssociatedWithSNP(snpAcc, false).values());
+		List<String> fActual	= new ArrayList<String>(anno.getDiseaseAssociatedWithSNP(snpAcc, true).values());
 		Collections.sort(expected);
 		Collections.sort(actual);
+		Collections.sort(fActual);
 		assertEquals("Diseases returned from test SNP "+snpAcc+" did not match expected.", expected, actual);
+		assertFalse("Failed to filter out less-specific diseases: set contained 'malignant neoplasm' with " +
+				"'colorectal cancer'.", fActual.contains("malignant neoplasm"));
 	}
 	
 	@Test
 	public void getAllLinkedDiseaseTermsTest() throws SQLException {
 		Set<String> returned = anno.getAllLinkedDiseaseTerms();
 		assertTrue("Expected size of set of all linked diseases to be at least 1180.", returned.size() >= 1180);
+	}
+	
+	@Test
+	public void getPageTitleTest() throws SQLException {
+		String title = anno.getPageTitle("PLN");
+		assertEquals("Phospholamban", title);
 	}
 	
 }

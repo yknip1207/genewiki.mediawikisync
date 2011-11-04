@@ -1,12 +1,20 @@
 package edu.scripps.sync;
 
+import java.io.File;
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.genewiki.api.Wiki;
+
+import com.google.common.base.Preconditions;
 
 import edu.scripps.resources.AnnotationDatabase;
 
@@ -50,7 +58,7 @@ public class Rewrite {
 	public static String appendGWPTemplate(String src, String title, Wiki wiki) {
 		// First, remove any {{GW+}} template that may already be on the page
 		if (src.contains("{{GW+")) {
-			int a = src.indexOf("{{GW+") + 5;
+			int a = src.indexOf("{{GW+");
 			int b = src.indexOf("}}", a) + 2;
 			src = src.substring(0, a) + src.substring(b, src.length());
 		}
@@ -102,39 +110,27 @@ public class Rewrite {
 				int a = src.indexOf("{{SWL") + 5;
 				int b = src.indexOf("}}",a);
 				String swl = src.substring(a, b);
-				Matcher mTarget = Pattern.compile("\\|[\\s]*target=").matcher(swl);
-				Matcher mLabel 	= Pattern.compile("\\|[\\s]*label=").matcher(swl);
-				Matcher mType 	= Pattern.compile("\\|[\\s]*type=").matcher(swl);
 				String target 	= null;
 				String label	= null;
 				String type		= null;
 				
 				/* ---- Parsing the SWL template (order-agnostic) ---- */
-				// find the target field's value
-				if (mTarget.find()) {
-					// target start index
-					int tgt = mTarget.start() + mTarget.group().length();	
-					// find the end, if it's bordered by another field (the '|' char) or is at the end of the template
-					int end = (swl.indexOf('|', tgt) != -1) ? swl.indexOf('|', tgt) : swl.length();
-					// extract the text after the '=' (the value of the field)
-					target = swl.substring(tgt, end);		
-				} else { continue; } // if there's no target defined, it's a malformed SWL, so skip it
-				
-				// find the type field's value
-				if (mType.find()) {
-					// same procedure as above
-					int typ = mType.start() + mType.group().length();
-					int end = (swl.indexOf('|', typ) != -1) ? swl.indexOf('|', typ) : swl.length();
-					type = swl.substring(typ, end);	
-				} else { continue; }
-				
-				// find the label field's value
-				if (mLabel.find()) {
-					// same procedure as above
-					int lbl = mLabel.start() + mLabel.group().length();
-					int end = (swl.indexOf('|', lbl) != -1) ? swl.indexOf('|', lbl) : swl.length();
-					label = swl.substring(lbl, end);
+				// find the target field's value (skip if not specified; indicates malformed template)
+				try {
+					target = Preconditions.checkNotNull(extractValueForField("target", swl));
+				} catch (NullPointerException e) {
+					continue;
 				}
+				
+				// find the type field's value (skip if not specified; indicates malformed template)
+				try {
+					type = Preconditions.checkNotNull(extractValueForField("type", swl));
+				} catch (NullPointerException e) {
+					continue;
+				}
+				
+				// find the label field's value (okay if not specified)
+				label = extractValueForField("label", swl); 
 				
 				/* ---- Constructing the Semantic Mediawiki link ---- */
 				String sml;
@@ -154,6 +150,29 @@ public class Rewrite {
 		}
 		
 		return src;
+	}
+	
+	/**
+	 * Returns the value for a field inside a properly-formatted template. If the field does
+	 * not exist, returns null. Properly formatted means that the next field starts at the next
+	 * occurrence of the '|' character; this does not work for nested templates or links with labels.
+	 * @param field the field name
+	 * @param template the inside text of the template
+	 * @return the value for the field, or null if field not found
+	 */
+	private static String extractValueForField(String field, String templateText) {
+		// the regex accounts for varying amount of whitespace between the '|', fieldname, and '='
+		Matcher m = Pattern.compile("\\|[\\s]*"+field+"[\\s]*=").matcher(templateText);
+		if (m.find()) {
+			int a = m.end();
+			// find the end of the 
+			int b = (templateText.indexOf('|', a) != -1) 
+						? templateText.indexOf('|', a) 
+						: templateText.length();
+			return templateText.substring(a, b);
+		} else {
+			return null;
+		}
 	}
 	
 	/**
@@ -184,7 +203,7 @@ public class Rewrite {
 				// remove the label, if present
 				int pipe = link.indexOf('|');
 				link = (pipe == -1) ? link : src2.substring(a, a+pipe);
-				
+
 				// If the link does not exist (and is not a semantic wikilink or category), append 'wikipedia:'
 				if (!link.contains("::") && !link.contains(":") && !link.contains("Category:") && !target.exists(link)[0]) {
 					src2 = src2.substring(0, a-1) + "wikipedia:" + src2.substring(a);
@@ -202,5 +221,98 @@ public class Rewrite {
 		}
 		return src2;
 	}
+	
+	/**
+	 * Returns a copy of the text with any [[wikipedia:File: or [[wikipedia:Image tags fixed (should not contain wikipedia:)
+	 * and also strips the is_associated_with property from links inside the descriptors of these tags. This method should be
+	 * run every time the bot converts wikilinks to basic semantic links, to be safe.
+	 * @param src
+	 * @return
+	 */
+	public static String cleanUp(String src) {
+		// Matches only "{{GW+" on its own, an artifact of a broken extraction process
+		String src2 = src.replaceAll("\\{\\{GW\\+[^}|]", "");
+		
+		/* *
+		 * Finds wikilinks that have wikipedia: appended incorrectly, 
+		 * and also contain is_associated_with properties (also incorrect) 
+		 * */
+		// This grabs everything too much, we only want what's between the opening and closing tags (group 2)
+		String 	malformedTagRegex	= "\\[\\[wikipedia:([Ff]ile:|[Ii]mage:)(.*)\\]\\]";
+		// This extracts is_associated_with tags inside a string (must be used on substrings from malformedTagRegex)
+		String 	problemTagRegex		= "\\[\\[is_associated_with::[\\w\\s\\|]*\\]\\]"; 	
+		Matcher malformedRegions 	= Pattern.compile(malformedTagRegex).matcher(src2);
+		Pattern problemTagPattern	= Pattern.compile(problemTagRegex);
+		
+		while (malformedRegions.find()) {
+			String whole = malformedRegions.group();
+			String insideTag = malformedRegions.group(2);
+
+			Matcher problemTags = problemTagPattern.matcher(insideTag);
+			while (problemTags.find()) {
+				String tag = problemTags.group().replace("is_associated_with::", "");
+				insideTag = insideTag.replace(problemTags.group(), tag);
+			}
+			whole =	whole.replaceAll("wikipedia:[Ff]ile:", "File:")
+						.replaceAll("wikipedia:[Ii]mage:", "Image:")
+						.replace(malformedRegions.group(2), insideTag);
+			src2 = src2.replace(malformedRegions.group(), whole);
+		}
+		
+		return src2;
+	}
+	
+	/**
+	 * Appends any categories related to the article subject from the Disease Ontology that do
+	 * not already exist on the page.
+	 * @param src source text
+	 * @param title page title
+	 * @param annodb absolute path (with filename) of the annotations database
+	 * @param target target wiki (for looking up corresponding DOIDs (must have SMW & SMWAskQuery installed))
+	 * @param isGene true if article is a gene page, false if article is a SNP
+	 * @return text of the article with any missing categories appended
+	 * @throws IllegalArgumentException if the annotation database can't be found
+	 */
+	public static String appendCategories(String src, String title, String annodb, Wiki target, boolean isGene) {
+		try {
+
+			if (!new File(annodb).exists()) 
+				throw new IllegalArgumentException("Specified annotation database file not found.");
+			
+			// Select the DO terms related to this article from the database
+			AnnotationDatabase anno = new AnnotationDatabase(annodb);
+			Map<String,String> diseases = (isGene) 	? anno.getDiseasesAssociatedWithGene(null, title, true) 
+													: anno.getDiseaseAssociatedWithSNP(title, true);
+			Set<String> diseaseCategories = new HashSet<String>(diseases.size());
+			
+			// Match the DO terms with the corresponding category pages on the Gene Wiki
+			for (String doid : diseases.keySet()) {
+				// We only expect there to be one match for any given DOID. If there's multiple, we only 
+				// select the first one (but again, there shouldn't be multiple unless we've mislabeled).
+				String dTitle = null;
+				try {
+					dTitle = new ArrayList<String>(target.askQuery("hasDOID", doid).keySet()).get(0);
+					diseaseCategories.add(dTitle);
+				} catch (IndexOutOfBoundsException e) {	
+					System.err.printf("No page found for term: '%s' (%s). Omitting...\n", diseases.get(doid), doid);
+				}
+			}
+			// Filter out any existing categories
+			List<String> existingCategories = Arrays.asList(target.getCategories(title));
+			diseaseCategories.removeAll(existingCategories);
+			for (String disease : diseaseCategories) {
+				src += "[["+disease+"]]\n";
+			}
+			return src;
+		} catch (SQLException e) {
+			e.printStackTrace();
+			return src;
+		} catch (IOException e) {
+			e.printStackTrace();
+			return src;
+		}
+	}
+	
+	
 	
 }

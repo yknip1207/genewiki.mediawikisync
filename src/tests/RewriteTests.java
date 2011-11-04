@@ -3,7 +3,10 @@ package tests;
 import static org.junit.Assert.*;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.nio.charset.Charset;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.genewiki.api.Wiki;
 import org.junit.After;
@@ -12,18 +15,18 @@ import org.junit.Test;
 
 import com.google.common.io.Files;
 
-import edu.scripps.sync.GeneWikiSync;
 import edu.scripps.sync.Rewrite;
 
 public class RewriteTests{
 	
 	Wiki 	source;
 	Wiki 	target;
+	Wiki	mockTarget;
 	int 	period;
 	boolean rewrite;
 	String 	defaultArticle, pre_testMirrored, post_testMirrored, pre_testGWPGene, post_testGWPGene,
 			pre_testGWPDisease, post_testGWPDisease, pre_testGWP, post_testGWP, pre_testSWL, post_testSWL,
-			pre_testLinks, post_testLinks;
+			pre_testLinks, post_testLinks, pre_cleanUp;
 	Charset utf8;
 
 	@Before
@@ -31,6 +34,8 @@ public class RewriteTests{
 		source = null;
 		target = new Wiki("genewikiplus.org", "");
 		target.setUsingCompressedRequests(false);
+		mockTarget = new MockWiki("genewikiplus.org", "");
+		mockTarget.setUsingCompressedRequests(false);
 		period = 5;
 		rewrite = true;
 		utf8	= Charset.forName("UTF-8");
@@ -47,6 +52,7 @@ public class RewriteTests{
 		post_testSWL		= Files.toString(new File("tests/pln-swl.wiki"), utf8);
 		pre_testLinks		= defaultArticle;
 		post_testLinks		= Files.toString(new File("tests/pln-links.wiki"), utf8);
+		pre_cleanUp			= Files.toString(new File("tests/cleanupText.wiki"), utf8);
 	}
 
 	@After
@@ -80,8 +86,15 @@ public class RewriteTests{
 	@Test
 	public void convertSWLTemplatesTest() {
 		String result = Rewrite.convertSWLTemplates(pre_testSWL);
-		System.out.println(result);
 		assertEquals(post_testSWL, result);
+	}
+	
+	@Test
+	public void appendCategoriesTest() throws FileNotFoundException {
+		String gResult = Rewrite.appendCategories("", "Phospholamban", "annotations.db", mockTarget, true);
+		assertEquals("[[Category:Congestive heart failure]]\n[[Category:Dilated cardiomyopathy]]\n", gResult);
+		String sResult = Rewrite.appendCategories("", "Rs1005510", "annotations.db", mockTarget, false);
+		assertEquals("[[Category:Age related macular degeneration]]\n", sResult);
 	}
 	
 	@Test
@@ -97,6 +110,20 @@ public class RewriteTests{
 		assertEquals(testLink3, Rewrite.fixLinks(testLink3, target));
 		assertEquals(testLink4, Rewrite.fixLinks(testLink4, target));
 	}
+	
+	@Test
+	public void cleanUpTests() {
+		String test 	= "[[wikipedia:File:something [[is_associated_with::something_else]]]] [[is_associated_with::something]]";
+		String correct 	= "[[File:something [[something_else]]]] [[is_associated_with::something]]"; 
+		assertEquals(correct, Rewrite.cleanUp(test));
+		String postCleanUp = Rewrite.cleanUp(pre_cleanUp);
+		Matcher GWPFragment = Pattern.compile("\\{\\{GW\\+[^}|]").matcher(postCleanUp);
+		assertFalse(GWPFragment.find());
+		assertFalse(postCleanUp.contains("wikipedia:"));
+		assertTrue(postCleanUp.contains("is_associated_with::"));
+		assertEquals(postCleanUp, Rewrite.cleanUp(postCleanUp));
+		
+	}
 
 }
 
@@ -104,6 +131,15 @@ class MockWiki extends Wiki {
 	
 	private static final long serialVersionUID = 1L;
 
+	public MockWiki(String root, String scriptPath) {
+		super(root, scriptPath);
+	}
+	
+	@Override
+	public String[] getCategories(String title) {
+		return new String[0];
+	}
+	
 	@Override	
 	public boolean[] exists(String... titles) {
 		boolean[] results = new boolean[titles.length];
