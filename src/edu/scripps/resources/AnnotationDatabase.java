@@ -59,6 +59,23 @@ public class AnnotationDatabase {
 		return result;
 	}
 	
+	public Set<String> getDiseasePages() throws SQLException {
+		Connection 	c 	= this.connect();
+		Statement 	s 	= c.createStatement();
+		ResultSet 	rs 	= s.executeQuery("select distinct(title) from title_do");
+		
+		Set<String> results = new HashSet<String>();
+		while (rs.next()) {
+			results.add(rs.getString("title"));
+		}
+		
+		s.close();
+		c.close();
+		
+		return results;
+		
+	}
+	
 	/**
 	 * Returns the set of diseases associated with a given gene, which can be specified by either the 
 	 * Entrez gene id or the page title (the other can be left as null). If both are given, the Entrez gene id is used.

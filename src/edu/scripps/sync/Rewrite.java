@@ -5,12 +5,15 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import javax.security.auth.login.LoginException;
 
 import org.genewiki.api.Wiki;
 
@@ -257,6 +260,7 @@ public class Rewrite {
 						.replaceAll("wikipedia:[Ii]mage:", "Image:")
 						.replace(malformedRegions.group(2), insideTag);
 			src2 = src2.replace(malformedRegions.group(), whole);
+			
 		}
 		
 		return src2;
@@ -272,10 +276,28 @@ public class Rewrite {
 	 * @param isGene true if article is a gene page, false if article is a SNP
 	 * @return text of the article with any missing categories appended
 	 * @throws IllegalArgumentException if the annotation database can't be found
+	 * @deprecated Use appendDetachedAnnotations instead; this is like categorizing cars as subclasses of parking garages
 	 */
 	public static String appendCategories(String src, String title, String annodb, Wiki target, boolean isGene) {
 		try {
 
+			Set<String> diseaseCategories = getPagesForAssocTerms(title, annodb, target, isGene);
+			// Filter out any existing categories
+			List<String> existingCategories = Arrays.asList(target.getCategories(title));
+			diseaseCategories.removeAll(existingCategories);
+			for (String disease : diseaseCategories) {
+				src += "[["+disease+"]]\n";
+			}
+			return src;
+
+		} catch (IOException e) {
+			e.printStackTrace();
+			return src;
+		}
+	}
+	
+	private static Set<String> getPagesForAssocTerms(String title, String annodb, Wiki target, boolean isGene) {
+		try {
 			if (!new File(annodb).exists()) 
 				throw new IllegalArgumentException("Specified annotation database file not found.");
 			
@@ -297,22 +319,101 @@ public class Rewrite {
 					System.err.printf("No page found for term: '%s' (%s). Omitting...\n", diseases.get(doid), doid);
 				}
 			}
-			// Filter out any existing categories
-			List<String> existingCategories = Arrays.asList(target.getCategories(title));
-			diseaseCategories.removeAll(existingCategories);
-			for (String disease : diseaseCategories) {
-				src += "[["+disease+"]]\n";
-			}
-			return src;
+			return diseaseCategories;
 		} catch (SQLException e) {
 			e.printStackTrace();
-			return src;
+			return Collections.emptySet();
 		} catch (IOException e) {
 			e.printStackTrace();
+			return Collections.emptySet();
+		}
+	}
+	
+	public static String appendDetachedAnnotations(String src, String title, String annodb, Wiki target, boolean isGene) {
+		Set<String> annotations = getPagesForAssocTerms(title, annodb, target, isGene);
+		if (annotations.size() == 0) {
+			return src;
+		}
+		StringBuffer sb = new StringBuffer();
+		sb.append("\n{{CAnnotationsStart}}\n");
+		for (String anno : annotations) {
+			String _anno = anno.replace("Category:", "");
+			sb.append("*  [[is_associated_with_disease::"+_anno+"]]\n");
+			// Categorize or create the page corresponding to the disease
+			categorizeDiseasePage(_anno, target);
+		}
+		sb.append("{{CAnnotationsEnd}}\n");
+		// excise old CAnnotations list before appending new (if present)
+		if (src.contains("\n{{CAnnotationsStart}}") && src.contains("{{CAnnotationsEnd}}\n")) {
+			Matcher m = Pattern.compile("\n\\{\\{CAnnotations.*CAnnotationsEnd\\}\\}\n", Pattern.DOTALL).matcher(src);
+			if (m.find()) {
+				src = src.replace(m.group(), "");
+			}
+		}
+		src += sb.toString(); 
+
+		return src; 
+	}
+	
+	/**
+	 * This method creates or edits a disease page corresponding to a disease ontology term specified
+	 * and categorizes it under the corresponding category. Also adds the GW+|disease template to show
+	 * inline query.
+	 * @param _anno disease ontology term
+	 * @param target 
+	 * @return true if success, false if error encountered
+	 */
+	public static boolean categorizeDiseasePage(String _anno, Wiki target) {
+		String do_page = "";
+		String do_page_original = "";
+		try {
+			if (target.exists(_anno)[0]) {
+				do_page = target.getPageText(_anno);
+				do_page_original = do_page;
+				do_page = do_page.replace("#REDIRECT", "");
+			} else {
+				log("!! Creating new disease ontology page for "+_anno);
+			}
+			log("Categorizing disease ontology page "+_anno);
+			if (!do_page.contains("\n[[Category:"+_anno+"]]\n"))
+					do_page += "\n[[Category:"+_anno+"]]\n";
+			log("Adding GW+ template to disease ontology page...");
+			do_page = do_page.replaceAll("\\{\\{GW\\+[\\|][\\w\\|]*\\}\\}\n", "");
+			do_page += "{{GW+|disease}}\n"; 
+			if (!(do_page.equals(do_page_original))) {
+				target.edit(_anno, do_page, "Altered/created Disease Ontology page for "+_anno, false);
+			} else {
+				log("No changes were made to source text; moving on.");
+			}
+			return true;
+		} catch (IOException e) {
+			e.printStackTrace();
+			return false;
+		} catch (LoginException e) {
+			e.printStackTrace();
+			return false;
+		}
+	}
+	
+	public static String removeDiseaseOntologyCategoryMembership(String src, String title, String annodb, Wiki target, boolean isGene) {
+		Set<String> annotations = getPagesForAssocTerms(title, annodb, target, isGene);
+		for (String anno : annotations) {
+			src = src.replace("[["+anno+"]]\n", "");
+		}
+		return src;
+	}
+	
+	public static String appendDiseaseQuery(String src) {
+		String dq = "{{DiseaseQuery}}";
+		if (!src.contains(dq)) {
+			return src + dq+"\n";
+		} else {
 			return src;
 		}
 	}
 	
-	
+	private static void log(String message) {
+		System.out.println(message);
+	}
 	
 }

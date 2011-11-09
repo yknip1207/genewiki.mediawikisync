@@ -10,6 +10,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -41,7 +42,9 @@ public class Crawler {
 	@SuppressWarnings("unchecked")
 	public static void main(String[] args) throws FailedLoginException, IOException, CredentialNotFoundException, SQLException {
 		Wiki target = new Wiki("genewikiplus.org", "");
+		target.setLogLevel(Level.WARNING);
 		Wiki source = new Wiki();
+		source.setLogLevel(Level.WARNING);
 		Wiki edited = new Wiki();
 		source.setMaxLag(0);
 		source.setUsingCompressedRequests(false);
@@ -49,6 +52,7 @@ public class Crawler {
 		target.setUsingCompressedRequests(false);
 		target.login("SyncBot", args[1].toCharArray());
 		target.setThrottle(0);
+		edited.setMaxLag(0);
 		edited.login("genewikiplus_extended", args[2].toCharArray());
 		List<String> previouslyEdited = new ArrayList<String>();
 		try {previouslyEdited = (ArrayList<String>) Serialize.in("completed.list.string.ser"); }
@@ -76,8 +80,12 @@ public class Crawler {
 //		Set<String> symbols = new AnnotationDatabase("annotations.db").getAllSymbols();
 //		Set<String> modified = crawler.createRedirectsForGeneSymbols(symbols, -1);
 //		Files.write(modified.toString(), new File("modified.set"), Charset.forName("UTF-8"));
-		List<String> genePages = findAllGenePages(target);
-		crawler.edit(genePages, 3);
+//		List<String> SnpPages = findAllSNPediaPages(target);		
+		List<String> GenePages = findAllGenePages(target);
+		crawler.edit(GenePages, -1, true);
+//		crawler.edit(SnpPages, -1, false);
+//		List<String> diseaseCategories = findAllDiseaseOntologyCategories(target);
+//		System.out.println(diseaseCategories.size());
 		
 	}
 	
@@ -125,6 +133,15 @@ public class Crawler {
 		} catch (IOException e) {
 			e.printStackTrace();
 			return "";
+		}
+	}
+	
+	public static List<String> findAllDiseaseOntologyCategories(Wiki wiki) {
+		try {
+			return Arrays.asList(wiki.getCategoryMembers("Disease_Ontology_Term", 14));			
+		} catch (IOException e) {
+			e.printStackTrace();
+			return Collections.emptyList();
 		}
 	}
 	
@@ -261,7 +278,7 @@ public class Crawler {
 		return completed;
 	}
 	
-	public List<String> edit(List<String> titles, int optionalLimit) {
+	public List<String> edit(List<String> titles, int optionalLimit, boolean isGene) {
 		int completedThisRound = 0;
 		for (String title : titles) {
 			try {
@@ -275,12 +292,16 @@ public class Crawler {
 				catch (FileNotFoundException e) { e.printStackTrace(); continue; }
 				
 				//---- actual rewrite logic goes here ----
-				log("Appending categories to SNP "+title);
-				String src2 = Rewrite.appendCategories(src, title, "annotations.db", target, false);
+				log("Removing diseases from "+title+".");
+				String src2 = Rewrite.removeDiseaseOntologyCategoryMembership(src, title, "annotations.db", target, isGene);
+				log("Altering detached annotations in "+title+".");
+				src2 = Rewrite.appendDetachedAnnotations(src2, title, "annotations.db", target, isGene);
+				
+				
 				//----
 				
 				if (!src2.equals(src)) {
-					try { target.edit(title, src2, "Added disease ontology terms to "+title, true); }
+					try { target.edit(title, src2, "Removing misplaced categories and reconfiguring annotations on "+title, true); }
 					catch (LoginException e) { e.printStackTrace(); continue; }
 				} else {
 					log("No changes were made to the source text; moving on.");

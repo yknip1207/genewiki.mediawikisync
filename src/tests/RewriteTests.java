@@ -21,7 +21,7 @@ public class RewriteTests{
 	
 	Wiki 	source;
 	Wiki 	target;
-	Wiki	mockTarget;
+	MockWiki	mockTarget;
 	int 	period;
 	boolean rewrite;
 	String 	defaultArticle, pre_testMirrored, post_testMirrored, pre_testGWPGene, post_testGWPGene,
@@ -90,11 +90,17 @@ public class RewriteTests{
 	}
 	
 	@Test
-	public void appendCategoriesTest() throws FileNotFoundException {
-		String gResult = Rewrite.appendCategories("", "Phospholamban", "annotations.db", mockTarget, true);
-		assertEquals("[[Category:Congestive heart failure]]\n[[Category:Dilated cardiomyopathy]]\n", gResult);
-		String sResult = Rewrite.appendCategories("", "Rs1005510", "annotations.db", mockTarget, false);
-		assertEquals("[[Category:Age related macular degeneration]]\n", sResult);
+	public void appendDetachedAnnotationsTest() {
+		String result 	= Rewrite.appendDetachedAnnotations("", "Rs6311", "annotations.db", mockTarget, false);
+		String expected = 	"\n{{CAnnotationsStart}}\n" +
+							"*  [[is_associated_with_disease::Rheumatoid arthritis]]\n" +
+							"*  [[is_associated_with_disease::Chronic fatigue syndrome]]\n" +
+							"*  [[is_associated_with_disease::Autistic disorder]]\n" +
+							"*  [[is_associated_with_disease::Obesity]]\n" +
+							"{{CAnnotationsEnd}}\n";
+		assertEquals(expected, result);
+		System.out.println(result);
+		assertEquals(expected, Rewrite.appendDetachedAnnotations(result, "Rs6311", "annotations.db", mockTarget, false));
 	}
 	
 	@Test
@@ -122,7 +128,20 @@ public class RewriteTests{
 		assertFalse(postCleanUp.contains("wikipedia:"));
 		assertTrue(postCleanUp.contains("is_associated_with::"));
 		assertEquals(postCleanUp, Rewrite.cleanUp(postCleanUp));
-		
+	}
+	
+	@Test
+	public void removeDiseaseOntologyCategoryMembershipTest() {
+		String pre = "[[Category:NotDOTerm]]\n[[Category:Adenocarcinoma]]\n[[Category:Benign mesothelioma]]\n";
+		assertEquals("[[Category:NotDOTerm]]\n", Rewrite.removeDiseaseOntologyCategoryMembership(pre, "Mesothelin", "annotations.db", mockTarget, true));
+	}
+	
+	@Test
+	public void categorizeDiseasePageTest() {
+		mockTarget.clearEdits();
+		assertTrue(Rewrite.categorizeDiseasePage("Congenital heart defect", mockTarget));
+		System.out.println(mockTarget.lastEdit);
+		assertTrue(mockTarget.lastEdit.contains("\n[[Category:Congenital heart defect]]\n{{GW+|disease}}\n"));
 	}
 
 }
@@ -130,9 +149,12 @@ public class RewriteTests{
 class MockWiki extends Wiki {
 	
 	private static final long serialVersionUID = 1L;
+	
+	public String lastEdit;
 
 	public MockWiki(String root, String scriptPath) {
 		super(root, scriptPath);
+		lastEdit = "";
 	}
 	
 	@Override
@@ -145,13 +167,22 @@ class MockWiki extends Wiki {
 		boolean[] results = new boolean[titles.length];
 		for (int i=0; i<titles.length; i++) {
 			String title = titles[i];
-			if (title.startsWith("!")) {
+			if (!title.startsWith("!")) {
 				results[i] = false;
 			} else {
 				results[i] = true;
 			}
 		}
 		return results;
+	}
+	
+	@Override
+	public void edit(String title, String src, String summary, boolean isMinor) {
+		lastEdit = lastEdit+"\n*  "+src;
+	}
+	
+	public void clearEdits() {
+		lastEdit = "";
 	}
 	
 }

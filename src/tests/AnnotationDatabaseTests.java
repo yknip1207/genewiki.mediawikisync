@@ -97,4 +97,11 @@ public class AnnotationDatabaseTests {
 		assertEquals("Phospholamban", title);
 	}
 	
+	@Test
+	public void getDiseasePagesTest() throws SQLException {
+		Set<String> returned = anno.getDiseasePages();
+		System.out.println(returned.toString());
+		assertTrue(returned.size() == 915);
+	}
+	
 }
