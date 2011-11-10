@@ -1,6 +1,7 @@
 package edu.scripps.sync;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -15,11 +16,13 @@ import java.util.regex.Pattern;
 
 import javax.security.auth.login.LoginException;
 
+import org.apache.http.client.HttpResponseException;
 import org.genewiki.api.Wiki;
 
 import com.google.common.base.Preconditions;
 
 import edu.scripps.resources.AnnotationDatabase;
+import edu.scripps.resources.NCBOClient;
 
 /**
  * Static methods for re-writing content en route to GeneWiki+.
@@ -296,6 +299,14 @@ public class Rewrite {
 		}
 	}
 	
+	/**
+	 * Uses annotation database to retrieve annotations
+	 * @param title
+	 * @param annodb
+	 * @param target
+	 * @param isGene
+	 * @return
+	 */
 	private static Set<String> getPagesForAssocTerms(String title, String annodb, Wiki target, boolean isGene) {
 		try {
 			if (!new File(annodb).exists()) 
@@ -329,8 +340,51 @@ public class Rewrite {
 		}
 	}
 	
-	public static String appendDetachedAnnotations(String src, String title, String annodb, Wiki target, boolean isGene) {
-		Set<String> annotations = getPagesForAssocTerms(title, annodb, target, isGene);
+	/**
+	 * Uses live calls to NCBO annotator to retrieve annotations
+	 * @param src text to annotate
+	 * @param target wiki to query for pages
+	 * @return a set of disease pages
+	 */
+	private static Set<String> getPagesForAssocTerms(String src, Wiki target) {
+		NCBOClient ncbo = null;
+		try {
+			ncbo = new NCBOClient();
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+			return Collections.emptySet();
+		} catch (IOException e) {
+			e.printStackTrace();
+			return Collections.emptySet();
+		}
+		
+		Map<String, String> diseases = null;
+		try {
+			diseases = ncbo.annotate(src);
+			diseases = ncbo.retainMostSpecific(diseases);
+		} catch (HttpResponseException e) {
+			e.printStackTrace();
+			return Collections.emptySet();
+		}
+		
+		Set<String> diseaseCategories = new HashSet<String>(diseases.size());
+		
+		for (String doid : diseases.keySet()) {
+			String dTitle = null;
+			try {
+				dTitle = new ArrayList<String>(target.askQuery("hasDOID", doid).keySet()).get(0);
+				diseaseCategories.add(dTitle);
+			} catch (IndexOutOfBoundsException e) {
+				System.err.printf("No page found for term: '%s' (%s). Omitting...\n", diseases.get(doid), doid);
+			} catch (IOException e) {
+				e.printStackTrace();
+				System.err.printf("Error communicating with target Wiki during ask query for term: '%s'. Omitting...", diseases.get(doid));
+			}
+		}
+		return diseaseCategories;
+	}
+	
+	private static String appendDetachedAnnotationsBackend(String src, Set<String> annotations, Wiki target) {
 		if (annotations.size() == 0) {
 			return src;
 		}
@@ -353,6 +407,16 @@ public class Rewrite {
 		src += sb.toString(); 
 
 		return src; 
+	}
+	
+	public static String appendDetachedAnnotations(String src, String title, String annodb, Wiki target, boolean isGene) {
+		Set<String> annotations = getPagesForAssocTerms(title, annodb, target, isGene);
+		return appendDetachedAnnotationsBackend(src, annotations, target);
+	}
+	
+	public static String appendDetachedAnnotations(String src, Wiki target) {
+		Set<String> annotations = getPagesForAssocTerms(src, target);
+		return appendDetachedAnnotationsBackend(src, annotations, target);
 	}
 	
 	/**

@@ -54,6 +54,8 @@ public class GeneWikiSync extends Sync {
 		src = fixLinks(src, target);
 		log("Converting any SWL templates to semantic wikilinks...");
 		src = convertSWLTemplates(src);
+		log("Appending found disease annotations using NCBO Annotator...");
+		src = appendDetachedAnnotations(src, target);
 		log("Done.");
 		return src;
 	}

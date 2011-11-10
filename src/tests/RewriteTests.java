@@ -26,7 +26,7 @@ public class RewriteTests{
 	boolean rewrite;
 	String 	defaultArticle, pre_testMirrored, post_testMirrored, pre_testGWPGene, post_testGWPGene,
 			pre_testGWPDisease, post_testGWPDisease, pre_testGWP, post_testGWP, pre_testSWL, post_testSWL,
-			pre_testLinks, post_testLinks, pre_cleanUp;
+			pre_testLinks, post_testLinks, pre_cleanUp, Rs6311;
 	Charset utf8;
 
 	@Before
@@ -53,6 +53,7 @@ public class RewriteTests{
 		pre_testLinks		= defaultArticle;
 		post_testLinks		= Files.toString(new File("tests/pln-links.wiki"), utf8);
 		pre_cleanUp			= Files.toString(new File("tests/cleanupText.wiki"), utf8);
+		Rs6311				= Files.toString(new File("tests/Rs6311.wiki"), utf8);
 	}
 
 	@After
@@ -101,6 +102,21 @@ public class RewriteTests{
 		assertEquals(expected, result);
 		System.out.println(result);
 		assertEquals(expected, Rewrite.appendDetachedAnnotations(result, "Rs6311", "annotations.db", mockTarget, false));
+	}
+	
+	@Test
+	public void appendDetachedAnnotationsTest2() {
+		String result = Rewrite.appendDetachedAnnotations(Rs6311, mockTarget);
+		String expected = 	"\n{{CAnnotationsStart}}\n" +
+							"*  [[is_associated_with_disease::Rheumatoid arthritis]]\n" +
+							"*  [[is_associated_with_disease::Chronic fatigue syndrome]]\n" +
+							"*  [[is_associated_with_disease::Diabetes mellitus]]\n" +
+							"*  [[is_associated_with_disease::Psoriasis]]\n" +
+							"*  [[is_associated_with_disease::Autistic disorder]]\n" +
+							"*  [[is_associated_with_disease::Obesity]]\n";
+		System.out.println(result);
+		assertTrue("Expected annotations were not included. This may reflect broken code or changes in the annotator.",
+				result.contains(expected));
 	}
 	
 	@Test
